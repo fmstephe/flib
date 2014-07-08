@@ -13,6 +13,9 @@ var (
 	byteq       = flag.Bool("bq", false, "Runs ByteQ")
 	bytechunkq  = flag.Bool("bcq", false, "Runs ByteChunkQ")
 	pointerq    = flag.Bool("pq", false, "Runs PointerQ")
+	ubyteq      = flag.Bool("ubq", false, "Runs UnsafeByteQ")
+	ubytechunkq = flag.Bool("ubcq", false, "Runs UnsafeByteChunkQ")
+	upointerq   = flag.Bool("upq", false, "Runs UnsafePointerQ")
 	millionMsgs = flag.Int64("mm", 10, "The number of messages (in millions) to send")
 	bytesSize   = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ")
 	chunkSize   = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ")
@@ -28,13 +31,25 @@ func main() {
 		runtime.GC()
 		bqTest(msgCount, *bytesSize, *qSize)
 	}
+	if *ubyteq || *all {
+		runtime.GC()
+		ubqTest(msgCount, *bytesSize, *qSize)
+	}
 	if *bytechunkq || *all {
 		runtime.GC()
 		bcqTest(msgCount, *chunkSize, *qSize)
 	}
+	if *ubytechunkq || *all {
+		runtime.GC()
+		ubcqTest(msgCount, *chunkSize, *qSize)
+	}
 	if *pointerq || *all {
 		runtime.GC()
-		pointerqTest(msgCount, *batchSize, *qSize)
+		pqTest(msgCount, *batchSize, *qSize)
+	}
+	if *upointerq || *all {
+		runtime.GC()
+		upqTest(msgCount, *batchSize, *qSize)
 	}
 }
 

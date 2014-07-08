@@ -6,7 +6,7 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/fmstephe/queues/spscq"
+	"github.com/fmstephe/flib/queues/spscq"
 )
 
 func bqTest(msgCount, msgSize, qSize int64) {

@@ -10,30 +10,30 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func pqTest(msgCount, batchSize, qSize int64) {
-	q := spscq.NewPointerQ(qSize)
+func upqTest(msgCount, batchSize, qSize int64) {
+	q := spscq.NewUnsafePointerQ(qSize)
 	done := make(chan bool)
-	f, err := os.Create("prof_pq")
+	f, err := os.Create("prof_upq")
 	if err != nil {
 		panic(err.Error())
 	}
 	pprof.StartCPUProfile(f)
-	go pqDequeue(msgCount, q, batchSize, done)
-	go pqEnqueue(msgCount, q, batchSize, done)
+	go upqDequeue(msgCount, q, batchSize, done)
+	go upqEnqueue(msgCount, q, batchSize, done)
 	<-done
 	<-done
 	pprof.StopCPUProfile()
 }
 
-func pqEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+func upqEnqueue(msgCount int64, q *spscq.UnsafePointerQ, batchSize int64, done chan bool) {
 	if batchSize > 1 {
-		pqBatchEnqueue(msgCount, q, batchSize, done)
+		upqBatchEnqueue(msgCount, q, batchSize, done)
 	} else {
-		pqSingleEnqueue(msgCount, q, done)
+		upqSingleEnqueue(msgCount, q, done)
 	}
 }
 
-func pqBatchEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+func upqBatchEnqueue(msgCount int64, q *spscq.UnsafePointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	var t int64
 	var buffer []unsafe.Pointer
@@ -59,7 +59,7 @@ OUTER:
 	done <- true
 }
 
-func pqSingleEnqueue(msgCount int64, q *spscq.PointerQ, done chan bool) {
+func upqSingleEnqueue(msgCount int64, q *spscq.UnsafePointerQ, done chan bool) {
 	runtime.LockOSThread()
 	t := 1
 	var v unsafe.Pointer
@@ -74,15 +74,15 @@ func pqSingleEnqueue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 	done <- true
 }
 
-func pqDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+func upqDequeue(msgCount int64, q *spscq.UnsafePointerQ, batchSize int64, done chan bool) {
 	if batchSize > 1 {
-		pqBatchDequeue(msgCount, q, batchSize, done)
+		upqBatchDequeue(msgCount, q, batchSize, done)
 	} else {
-		pqSingleDequeue(msgCount, q, done)
+		upqSingleDequeue(msgCount, q, done)
 	}
 }
 
-func pqBatchDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+func upqBatchDequeue(msgCount int64, q *spscq.UnsafePointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	var sum int64
@@ -110,12 +110,12 @@ OUTER:
 		}
 	}
 	nanos := time.Now().UnixNano() - start
-	printTimings(msgCount, nanos, "pq")
+	printTimings(msgCount, nanos, "upq")
 	expect(sum, checksum)
 	done <- true
 }
 
-func pqSingleDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
+func upqSingleDequeue(msgCount int64, q *spscq.UnsafePointerQ, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
@@ -130,7 +130,7 @@ func pqSingleDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 		checksum += i + 1
 	}
 	nanos := time.Now().UnixNano() - start
-	printTimings(msgCount, nanos, "pq")
+	printTimings(msgCount, nanos, "upq")
 	expect(sum, checksum)
 	done <- true
 }
