@@ -21,6 +21,7 @@ var (
 	chunkSize   = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ")
 	batchSize   = flag.Int64("batchSize", 1, "The size of the read/write batches used by PointerQ")
 	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue")
+	profile     = flag.Bool("profile", false, "Activates the Go profiler, outputting into a prof_* file.")
 )
 
 func main() {
@@ -29,27 +30,27 @@ func main() {
 	var msgCount int64 = (*millionMsgs) * 1000 * 1000
 	if *byteq || *all {
 		runtime.GC()
-		bqTest(msgCount, *bytesSize, *qSize)
+		bqTest(msgCount, *bytesSize, *qSize, *profile)
 	}
 	if *ubyteq || *all {
 		runtime.GC()
-		ubqTest(msgCount, *bytesSize, *qSize)
+		ubqTest(msgCount, *bytesSize, *qSize, *profile)
 	}
 	if *bytechunkq || *all {
 		runtime.GC()
-		bcqTest(msgCount, *chunkSize, *qSize)
+		bcqTest(msgCount, *chunkSize, *qSize, *profile)
 	}
 	if *ubytechunkq || *all {
 		runtime.GC()
-		ubcqTest(msgCount, *chunkSize, *qSize)
+		ubcqTest(msgCount, *chunkSize, *qSize, *profile)
 	}
 	if *pointerq || *all {
 		runtime.GC()
-		pqTest(msgCount, *batchSize, *qSize)
+		pqTest(msgCount, *batchSize, *qSize, *profile)
 	}
 	if *upointerq || *all {
 		runtime.GC()
-		upqTest(msgCount, *batchSize, *qSize)
+		upqTest(msgCount, *batchSize, *qSize, *profile)
 	}
 }
 

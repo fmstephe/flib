@@ -9,19 +9,21 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func ubcqTest(msgCount, msgSize, qSize int64) {
+func ubcqTest(msgCount, msgSize, qSize int64, profile bool) {
 	q := spscq.NewUnsafeByteChunkQ(qSize, msgSize)
 	done := make(chan bool)
-	f, err := os.Create("prof_ubcq")
-	if err != nil {
-		panic(err.Error())
+	if profile {
+		f, err := os.Create("prof_ubcq")
+		if err != nil {
+			panic(err.Error())
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
-	pprof.StartCPUProfile(f)
 	go ubcqDequeue(msgCount, q, done)
 	go ubcqEnqueue(msgCount, q, done)
 	<-done
 	<-done
-	pprof.StopCPUProfile()
 }
 
 func ubcqEnqueue(msgCount int64, q *spscq.UnsafeByteChunkQ, done chan bool) {

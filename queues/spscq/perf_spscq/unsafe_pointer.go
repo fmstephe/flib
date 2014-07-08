@@ -10,19 +10,21 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func upqTest(msgCount, batchSize, qSize int64) {
+func upqTest(msgCount, batchSize, qSize int64, profile bool) {
 	q := spscq.NewUnsafePointerQ(qSize)
 	done := make(chan bool)
-	f, err := os.Create("prof_upq")
-	if err != nil {
-		panic(err.Error())
+	if profile {
+		f, err := os.Create("prof_upq")
+		if err != nil {
+			panic(err.Error())
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
-	pprof.StartCPUProfile(f)
 	go upqDequeue(msgCount, q, batchSize, done)
 	go upqEnqueue(msgCount, q, batchSize, done)
 	<-done
 	<-done
-	pprof.StopCPUProfile()
 }
 
 func upqEnqueue(msgCount int64, q *spscq.UnsafePointerQ, batchSize int64, done chan bool) {

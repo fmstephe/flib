@@ -10,19 +10,21 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func pqTest(msgCount, batchSize, qSize int64) {
+func pqTest(msgCount, batchSize, qSize int64, profile bool) {
 	q := spscq.NewPointerQ(qSize)
 	done := make(chan bool)
-	f, err := os.Create("prof_pq")
-	if err != nil {
-		panic(err.Error())
+	if profile {
+		f, err := os.Create("prof_pq")
+		if err != nil {
+			panic(err.Error())
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
-	pprof.StartCPUProfile(f)
 	go pqDequeue(msgCount, q, batchSize, done)
 	go pqEnqueue(msgCount, q, batchSize, done)
 	<-done
 	<-done
-	pprof.StopCPUProfile()
 }
 
 func pqEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {

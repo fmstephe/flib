@@ -9,19 +9,21 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func bcqTest(msgCount, msgSize, qSize int64) {
+func bcqTest(msgCount, msgSize, qSize int64, profile bool) {
 	q := spscq.NewByteChunkQ(qSize, msgSize)
 	done := make(chan bool)
-	f, err := os.Create("prof_bcq")
-	if err != nil {
-		panic(err.Error())
+	if profile {
+		f, err := os.Create("prof_bcq")
+		if err != nil {
+			panic(err.Error())
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
-	pprof.StartCPUProfile(f)
 	go bcqDequeue(msgCount, q, done)
 	go bcqEnqueue(msgCount, q, done)
 	<-done
 	<-done
-	pprof.StopCPUProfile()
 }
 
 func bcqEnqueue(msgCount int64, q *spscq.ByteChunkQ, done chan bool) {
