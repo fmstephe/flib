@@ -8,17 +8,16 @@ import (
 )
 
 type ByteQ struct {
-	_1         padded.CacheBuffer
-	read       padded.Int64
-	writeCache padded.Int64
-	write      padded.Int64
-	readCache  padded.Int64
-	_2         padded.CacheBuffer
-	// Read only
-	ringBuffer []byte
-	size       int64
-	mask       int64
-	_3         padded.CacheBuffer
+	_prebuffer  padded.CacheBuffer
+	read        padded.Int64
+	writeCache  padded.Int64
+	write       padded.Int64
+	readCache   padded.Int64
+	_midbuffer  padded.CacheBuffer
+	ringBuffer  []byte
+	size        int64
+	mask        int64
+	_postbuffer padded.CacheBuffer
 }
 
 func NewByteQ(size int64) *ByteQ {
