@@ -11,10 +11,9 @@ type ByteChunkQ struct {
 	_1         padded.CacheBuffer
 	read       padded.Int64
 	writeCache padded.Int64
-	_2         padded.CacheBuffer
 	write      padded.Int64
 	readCache  padded.Int64
-	_3         padded.CacheBuffer
+	_2         padded.CacheBuffer
 	// Read only
 	ringBuffer  []byte
 	readBuffer  []byte
@@ -22,7 +21,7 @@ type ByteChunkQ struct {
 	size        int64
 	chunk       int64
 	mask        int64
-	_4          padded.CacheBuffer
+	_3          padded.CacheBuffer
 }
 
 func NewByteChunkQ(size int64, chunk int64) *ByteChunkQ {
