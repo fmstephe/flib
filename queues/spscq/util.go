@@ -1,7 +1,5 @@
 package spscq
 
-import ()
-
 func powerOfTwo(val int64) bool {
 	return val >= 0 && val&(val-1) == 0
 }

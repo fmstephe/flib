@@ -10,7 +10,7 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func pointerqTest(msgCount, pointerSize, qSize int64) {
+func pointerqTest(msgCount, batchSize, qSize int64) {
 	q := spscq.NewPointerQ(qSize)
 	done := make(chan bool)
 	f, err := os.Create("prof_pointerq")
@@ -18,30 +18,30 @@ func pointerqTest(msgCount, pointerSize, qSize int64) {
 		panic(err.Error())
 	}
 	pprof.StartCPUProfile(f)
-	go pointerqDequeue(msgCount, q, pointerSize, done)
-	go pointerqEnqueue(msgCount, q, pointerSize, done)
+	go pointerqDequeue(msgCount, q, batchSize, done)
+	go pointerqEnqueue(msgCount, q, batchSize, done)
 	<-done
 	<-done
 	pprof.StopCPUProfile()
 }
 
-func pointerqEnqueue(msgCount int64, q *spscq.PointerQ, pointerSize int64, done chan bool) {
-	if pointerSize > 1 {
-		pointerqBatchEnqueue(msgCount, q, pointerSize, done)
+func pointerqEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+	if batchSize > 1 {
+		pointerqBatchEnqueue(msgCount, q, batchSize, done)
 	} else {
-		pointerqSingleEnqueue(msgCount, q, pointerSize, done)
+		pointerqSingleEnqueue(msgCount, q, done)
 	}
 }
 
-func pointerqBatchEnqueue(msgCount int64, q *spscq.PointerQ, pointerSize int64, done chan bool) {
+func pointerqBatchEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	var t int64
 	var buffer []unsafe.Pointer
 OUTER:
 	for {
-		buffer = q.WriteBuffer(pointerSize)
+		buffer = q.WriteBuffer(batchSize)
 		for buffer == nil {
-			buffer = q.WriteBuffer(pointerSize)
+			buffer = q.WriteBuffer(batchSize)
 		}
 		for i := range buffer {
 			t++
@@ -59,7 +59,7 @@ OUTER:
 	done <- true
 }
 
-func pointerqSingleEnqueue(msgCount int64, q *spscq.PointerQ, pointerSize int64, done chan bool) {
+func pointerqSingleEnqueue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 	runtime.LockOSThread()
 	t := 1
 	var v unsafe.Pointer
@@ -74,15 +74,15 @@ func pointerqSingleEnqueue(msgCount int64, q *spscq.PointerQ, pointerSize int64,
 	done <- true
 }
 
-func pointerqDequeue(msgCount int64, q *spscq.PointerQ, pointerSize int64, done chan bool) {
-	if pointerSize > 1 {
-		pointerqBatchDequeue(msgCount, q, pointerSize, done)
+func pointerqDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+	if batchSize > 1 {
+		pointerqBatchDequeue(msgCount, q, batchSize, done)
 	} else {
-		pointerqSingleDequeue(msgCount, q, pointerSize, done)
+		pointerqSingleDequeue(msgCount, q, done)
 	}
 }
 
-func pointerqBatchDequeue(msgCount int64, q *spscq.PointerQ, pointerSize int64, done chan bool) {
+func pointerqBatchDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	var sum int64
@@ -91,9 +91,9 @@ func pointerqBatchDequeue(msgCount int64, q *spscq.PointerQ, pointerSize int64, 
 	var buffer []unsafe.Pointer
 OUTER:
 	for {
-		buffer = q.ReadBuffer(pointerSize)
+		buffer = q.ReadBuffer(batchSize)
 		for buffer == nil {
-			buffer = q.ReadBuffer(pointerSize)
+			buffer = q.ReadBuffer(batchSize)
 		}
 		for i := range buffer {
 			t++
@@ -115,7 +115,7 @@ OUTER:
 	done <- true
 }
 
-func pointerqSingleDequeue(msgCount int64, q *spscq.PointerQ, pointerSize int64, done chan bool) {
+func pointerqSingleDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)

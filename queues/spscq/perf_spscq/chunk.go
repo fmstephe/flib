@@ -9,22 +9,22 @@ import (
 	"github.com/fmstephe/queues/spscq"
 )
 
-func cqTest(msgCount, msgSize, qSize int64) {
+func bcqTest(msgCount, msgSize, qSize int64) {
 	q := spscq.NewChunkQ(qSize, msgSize)
 	done := make(chan bool)
-	f, err := os.Create("prof_cq")
+	f, err := os.Create("prof_bcq")
 	if err != nil {
 		panic(err.Error())
 	}
 	pprof.StartCPUProfile(f)
-	go cqDequeue(msgCount, q, done)
-	go cqEnqueue(msgCount, q, done)
+	go bcqDequeue(msgCount, q, done)
+	go bcqEnqueue(msgCount, q, done)
 	<-done
 	<-done
 	pprof.StopCPUProfile()
 }
 
-func cqEnqueue(msgCount int64, q *spscq.ChunkQ, done chan bool) {
+func bcqEnqueue(msgCount int64, q *spscq.ChunkQ, done chan bool) {
 	runtime.LockOSThread()
 	writeBuffer := q.WriteBuffer()
 	for i := int64(0); i < msgCount; i++ {
@@ -35,7 +35,7 @@ func cqEnqueue(msgCount int64, q *spscq.ChunkQ, done chan bool) {
 	done <- true
 }
 
-func cqDequeue(msgCount int64, q *spscq.ChunkQ, done chan bool) {
+func bcqDequeue(msgCount int64, q *spscq.ChunkQ, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	readBuffer := q.ReadBuffer()
@@ -48,7 +48,7 @@ func cqDequeue(msgCount int64, q *spscq.ChunkQ, done chan bool) {
 		checksum += int64(byte(i))
 	}
 	nanos := time.Now().UnixNano() - start
-	printTimings(msgCount, nanos, "cq")
+	printTimings(msgCount, nanos, "bcq")
 	expect(sum, checksum)
 	done <- true
 }

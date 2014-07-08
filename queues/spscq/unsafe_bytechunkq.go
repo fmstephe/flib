@@ -2,18 +2,20 @@ package spscq
 
 import (
 	"fmt"
+	"sync/atomic"
+
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
-	"sync/atomic"
 )
 
 type UnsafeByteChunkQ struct {
-	_1         padded.Int64
+	_1         padded.CacheBuffer
 	read       padded.Int64
-	readCache  padded.Int64
-	write      padded.Int64
 	writeCache padded.Int64
-	_2         padded.Int64
+	_2         padded.CacheBuffer
+	write      padded.Int64
+	readCache  padded.Int64
+	_3         padded.CacheBuffer
 	// Read only
 	ringBuffer  []byte
 	readBuffer  []byte
@@ -21,7 +23,7 @@ type UnsafeByteChunkQ struct {
 	size        int64
 	chunk       int64
 	mask        int64
-	_3          padded.Int64
+	_4          padded.CacheBuffer
 }
 
 func NewUnsafeByteChunkQ(size int64, chunk int64) *UnsafeByteChunkQ {
@@ -56,7 +58,7 @@ func (q *UnsafeByteChunkQ) Write() bool {
 	idx := write & q.mask
 	nxt := idx + chunk
 	copy(q.ringBuffer[idx:nxt], q.writeBuffer)
-	fatomic.LazyStore(&q.write.Value, write+chunk)
+	fatomic.LazyStore(&q.write.Value, q.write.Value+chunk)
 	return true
 }
 
@@ -77,6 +79,6 @@ func (q *UnsafeByteChunkQ) Read() bool {
 	idx := read & q.mask
 	nxt := idx + chunk
 	copy(q.readBuffer, q.ringBuffer[idx:nxt])
-	fatomic.LazyStore(&q.read.Value, read+chunk)
+	fatomic.LazyStore(&q.read.Value, q.read.Value+chunk)
 	return true
 }

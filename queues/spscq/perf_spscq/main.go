@@ -16,7 +16,7 @@ var (
 	millionMsgs = flag.Int64("mm", 10, "The number of messages (in millions) to send")
 	bytesSize   = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ")
 	chunkSize   = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ")
-	batchSize   = flag.Int64("batchSize", 1, "The size of the read/write batches used by PointerQ and ExtPointerQ")
+	batchSize   = flag.Int64("batchSize", 1, "The size of the read/write batches used by PointerQ")
 	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue")
 )
 
@@ -30,7 +30,7 @@ func main() {
 	}
 	if *bytechunkq || *all {
 		runtime.GC()
-		cqTest(msgCount, *chunkSize, *qSize)
+		bcqTest(msgCount, *chunkSize, *qSize)
 	}
 	if *pointerq || *all {
 		runtime.GC()

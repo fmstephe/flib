@@ -2,22 +2,24 @@ package spscq
 
 import (
 	"fmt"
-	"github.com/fmstephe/flib/fsync/padded"
 	"sync/atomic"
+
+	"github.com/fmstephe/flib/fsync/padded"
 )
 
 type ByteQ struct {
-	_1         padded.Int64
+	_1         padded.CacheBuffer
 	read       padded.Int64
-	readCache  padded.Int64
-	write      padded.Int64
 	writeCache padded.Int64
-	_2         padded.Int64
+	_2         padded.CacheBuffer
+	write      padded.Int64
+	readCache  padded.Int64
+	_3         padded.CacheBuffer
 	// Read only
 	ringBuffer []byte
 	size       int64
 	mask       int64
-	_3         padded.Int64
+	_4         padded.CacheBuffer
 }
 
 func NewByteQ(size int64) *ByteQ {

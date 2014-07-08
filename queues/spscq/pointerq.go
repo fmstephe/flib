@@ -2,24 +2,25 @@ package spscq
 
 import (
 	"fmt"
-	"github.com/fmstephe/flib/fsync/padded"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/fmstephe/flib/fsync/padded"
 )
 
 type PointerQ struct {
-	_1         padded.Int64
-	read       int64
-	writeCache int64
-	_2         padded.Int64
-	write      int64
-	readCache  int64
-	_3         padded.Int64
+	_1         padded.CacheBuffer
+	read       padded.Int64
+	writeCache padded.Int64
+	_2         padded.CacheBuffer
+	write      padded.Int64
+	readCache  padded.Int64
+	_3         padded.CacheBuffer
 	// Read only
 	ringBuffer []unsafe.Pointer
 	size       int64
 	mask       int64
-	_4         padded.Int64
+	_4         padded.CacheBuffer
 }
 
 func NewPointerQ(size int64) *PointerQ {
@@ -32,67 +33,67 @@ func NewPointerQ(size int64) *PointerQ {
 }
 
 func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
-	write := q.write
+	write := q.write.Value
 	readLimit := write - q.size
-	if readLimit == q.readCache {
-		q.readCache = atomic.LoadInt64(&q.read)
-		if readLimit == q.readCache {
+	if readLimit == q.readCache.Value {
+		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
+		if readLimit == q.readCache.Value {
 			return false
 		}
 	}
 	q.ringBuffer[write&q.mask] = val
-	atomic.AddInt64(&q.write, 1)
+	atomic.AddInt64(&q.write.Value, 1)
 	return true
 }
 
 func (q *PointerQ) WriteBuffer(bufferSize int64) []unsafe.Pointer {
-	write := q.write
+	write := q.write.Value
 	idx := write & q.mask
 	bufferSize = min(bufferSize, q.size-idx)
 	writeTo := write + bufferSize
 	readLimit := writeTo - q.size
 	nxt := idx + bufferSize
-	if readLimit > q.readCache {
-		q.readCache = atomic.LoadInt64(&q.read)
-		if readLimit > q.readCache {
-			nxt = q.readCache & q.mask
+	if readLimit > q.readCache.Value {
+		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
+		if readLimit > q.readCache.Value {
+			nxt = q.readCache.Value & q.mask
 		}
 	}
 	return q.ringBuffer[idx:nxt]
 }
 
 func (q *PointerQ) CommitWriteBuffer(writeSize int64) {
-	atomic.AddInt64(&q.write, writeSize)
+	atomic.AddInt64(&q.write.Value, writeSize)
 }
 
 func (q *PointerQ) ReadSingle() unsafe.Pointer {
-	read := q.read
-	if read == q.writeCache {
-		q.writeCache = atomic.LoadInt64(&q.write)
-		if read == q.writeCache {
+	read := q.read.Value
+	if read == q.writeCache.Value {
+		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
+		if read == q.writeCache.Value {
 			return nil
 		}
 	}
 	val := q.ringBuffer[read&q.mask]
-	atomic.AddInt64(&q.read, 1)
+	atomic.AddInt64(&q.read.Value, 1)
 	return val
 }
 
 func (q *PointerQ) ReadBuffer(bufferSize int64) []unsafe.Pointer {
-	read := q.read
+	read := q.read.Value
 	idx := read & q.mask
 	bufferSize = min(bufferSize, q.size-idx)
 	readTo := read + bufferSize
 	nxt := idx + bufferSize
-	if readTo > q.writeCache {
-		q.writeCache = atomic.LoadInt64(&q.write)
-		if readTo > q.writeCache {
-			nxt = q.writeCache & q.mask
+	if readTo > q.writeCache.Value {
+		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
+		if readTo > q.writeCache.Value {
+			nxt = q.writeCache.Value & q.mask
 		}
 	}
 	return q.ringBuffer[idx:nxt]
 }
 
 func (q *PointerQ) CommitReadBuffer(readSize int64) {
-	atomic.AddInt64(&q.read, readSize)
+	atomic.AddInt64(&q.read.Value, readSize)
 }
