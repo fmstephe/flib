@@ -9,10 +9,12 @@ type paddedCounters struct {
 	_prebuffer padded.CacheBuffer
 	// Writer fields
 	write     padded.Int64
+	writeSize padded.Int64
 	writeFail padded.Int64
 	readCache padded.Int64
 	// Reader fields
 	read       padded.Int64
+	readSize   padded.Int64
 	readFail   padded.Int64
 	writeCache padded.Int64
 	_midbuffer padded.CacheBuffer

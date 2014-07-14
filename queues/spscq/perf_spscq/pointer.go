@@ -7,6 +7,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
@@ -39,24 +40,17 @@ func pqBatchEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done cha
 	runtime.LockOSThread()
 	var t int64
 	var buffer []unsafe.Pointer
-OUTER:
-	for {
-		buffer = q.WriteBuffer(batchSize)
+	for t < msgCount {
+		size := fmath.Min(batchSize, msgCount-t)
+		buffer = q.WriteBuffer(size)
 		for buffer == nil {
-			buffer = q.WriteBuffer(batchSize)
+			buffer = q.WriteBuffer(size)
 		}
 		for i := range buffer {
 			t++
-			if t > msgCount {
-				q.CommitWriteBuffer(int64(i))
-				break OUTER
-			}
 			buffer[i] = unsafe.Pointer(uintptr(uint(t)))
 		}
-		q.CommitWriteBuffer(int64(len(buffer)))
-		if t == msgCount {
-			break
-		}
+		q.CommitWriteBuffer()
 	}
 	done <- true
 }
@@ -91,25 +85,17 @@ func pqBatchDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done cha
 	var checksum int64
 	var t int64
 	var buffer []unsafe.Pointer
-OUTER:
-	for {
+	for t < msgCount {
 		buffer = q.ReadBuffer(batchSize)
 		for buffer == nil {
 			buffer = q.ReadBuffer(batchSize)
 		}
 		for i := range buffer {
 			t++
-			if t > msgCount {
-				q.CommitReadBuffer(int64(i))
-				break OUTER
-			}
 			sum += int64(uintptr(buffer[i]))
 			checksum += t
 		}
-		q.CommitReadBuffer(int64(len(buffer)))
-		if t == msgCount {
-			break
-		}
+		q.CommitReadBuffer()
 	}
 	nanos := time.Now().UnixNano() - start
 	printTimings(msgCount, nanos, q.WriteFails(), q.ReadFails(), "pq")

@@ -1,9 +1,10 @@
-package spscq
+package fmath
 
 import (
-	"github.com/fmstephe/flib/fstrconv"
 	"math/rand"
 	"testing"
+
+	"github.com/fmstephe/flib/fstrconv"
 )
 
 func TestMin(t *testing.T) {
@@ -11,7 +12,7 @@ func TestMin(t *testing.T) {
 	for i := 0; i < 1000*1000; i++ {
 		a := rand.Int63n(1000 * 1000 * 1000)
 		b := rand.Int63n(1000 * 1000 * 1000)
-		m := min(a, b)
+		m := Min(a, b)
 		om := simpleMin(a, b)
 		if m != om {
 			as := fstrconv.ItoaComma(a)

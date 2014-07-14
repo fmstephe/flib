@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 )
@@ -17,7 +18,7 @@ type UnsafeByteQ struct {
 }
 
 func NewUnsafeByteQ(size int64) *UnsafeByteQ {
-	if !powerOfTwo(size) {
+	if !fmath.PowerOfTwo(size) {
 		panic(fmt.Sprintf("Size (%d) must be a power of two", size))
 	}
 	ringBuffer := padded.ByteSlice(int(size))
@@ -61,7 +62,7 @@ func (q *UnsafeByteQ) Read(readBuffer []byte) bool {
 			return false
 		}
 	}
-	chunk := min(write-read, int64(len(readBuffer)))
+	chunk := fmath.Min(write-read, int64(len(readBuffer)))
 	idx := read & q.mask
 	nxt := idx + chunk
 	if nxt <= q.size {

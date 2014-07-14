@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 )
@@ -20,7 +21,7 @@ type UnsafeByteChunkQ struct {
 }
 
 func NewUnsafeByteChunkQ(size int64, chunk int64) *UnsafeByteChunkQ {
-	if !powerOfTwo(size) {
+	if !fmath.PowerOfTwo(size) {
 		panic(fmt.Sprintf("Size must be a power of two, size = %d", size))
 	}
 	if size%chunk != 0 {

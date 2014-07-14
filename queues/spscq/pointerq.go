@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/padded"
 )
 
@@ -17,7 +18,7 @@ type PointerQ struct {
 }
 
 func NewPointerQ(size int64) *PointerQ {
-	if !powerOfTwo(size) {
+	if !fmath.PowerOfTwo(size) {
 		panic(fmt.Sprintf("Size must be a power of two, size = %d", size))
 	}
 	ringBuffer := padded.PointerSlice(int(size))
@@ -43,7 +44,7 @@ func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
 func (q *PointerQ) WriteBuffer(bufferSize int64) []unsafe.Pointer {
 	write := q.write.Value
 	idx := write & q.mask
-	bufferSize = min(bufferSize, q.size-idx)
+	bufferSize = fmath.Min(bufferSize, q.size-idx)
 	writeTo := write + bufferSize
 	readLimit := writeTo - q.size
 	nxt := idx + bufferSize
@@ -56,11 +57,13 @@ func (q *PointerQ) WriteBuffer(bufferSize int64) []unsafe.Pointer {
 	if idx == nxt {
 		q.writeFail.Value++
 	}
+	q.writeSize.Value = nxt - idx
 	return q.ringBuffer[idx:nxt]
 }
 
-func (q *PointerQ) CommitWriteBuffer(writeSize int64) {
-	atomic.AddInt64(&q.write.Value, writeSize)
+func (q *PointerQ) CommitWriteBuffer() {
+	atomic.AddInt64(&q.write.Value, q.writeSize.Value)
+	q.writeSize.Value = 0
 }
 
 func (q *PointerQ) ReadSingle() unsafe.Pointer {
@@ -80,7 +83,7 @@ func (q *PointerQ) ReadSingle() unsafe.Pointer {
 func (q *PointerQ) ReadBuffer(bufferSize int64) []unsafe.Pointer {
 	read := q.read.Value
 	idx := read & q.mask
-	bufferSize = min(bufferSize, q.size-idx)
+	bufferSize = fmath.Min(bufferSize, q.size-idx)
 	readTo := read + bufferSize
 	nxt := idx + bufferSize
 	if readTo > q.writeCache.Value {
@@ -92,9 +95,11 @@ func (q *PointerQ) ReadBuffer(bufferSize int64) []unsafe.Pointer {
 	if idx == nxt {
 		q.readFail.Value++
 	}
+	q.readSize.Value = nxt - idx
 	return q.ringBuffer[idx:nxt]
 }
 
-func (q *PointerQ) CommitReadBuffer(readSize int64) {
-	atomic.AddInt64(&q.read.Value, readSize)
+func (q *PointerQ) CommitReadBuffer() {
+	atomic.AddInt64(&q.read.Value, q.readSize.Value)
+	q.readSize.Value = 0
 }
