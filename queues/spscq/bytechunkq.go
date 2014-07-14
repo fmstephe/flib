@@ -10,8 +10,6 @@ import (
 
 type ByteChunkQ struct {
 	paddedCounters
-	readBuffer  []byte
-	writeBuffer []byte
 	ringBuffer  []byte
 	size        int64
 	chunk       int64
@@ -27,17 +25,11 @@ func NewByteChunkQ(size int64, chunk int64) *ByteChunkQ {
 		panic(fmt.Sprintf("Size must be neatly divisible by chunk, (size) %d rem (chunk) %d = %d", size, chunk, size%chunk))
 	}
 	ringBuffer := padded.ByteSlice(int(size))
-	readBuffer := padded.ByteSlice(int(chunk))
-	writeBuffer := padded.ByteSlice(int(chunk))
-	q := &ByteChunkQ{ringBuffer: ringBuffer, readBuffer: readBuffer, writeBuffer: writeBuffer, size: size, chunk: chunk, mask: size - 1}
+	q := &ByteChunkQ{ringBuffer: ringBuffer, size: size, chunk: chunk, mask: size - 1}
 	return q
 }
 
-func (q *ByteChunkQ) ReadBuffer() []byte {
-	return q.readBuffer
-}
-
-func (q *ByteChunkQ) Write() bool {
+func (q *ByteChunkQ) WriteBuffer() []byte {
 	chunk := q.chunk
 	write := q.write.Value
 	writeTo := write + chunk
@@ -46,21 +38,19 @@ func (q *ByteChunkQ) Write() bool {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit > q.readCache.Value {
 			q.writeFail.Value++
-			return false
+			return nil
 		}
 	}
 	idx := write & q.mask
 	nxt := idx + chunk
-	copy(q.ringBuffer[idx:nxt], q.writeBuffer)
-	atomic.AddInt64(&q.write.Value, chunk)
-	return true
+	return q.ringBuffer[idx:nxt]
 }
 
-func (q *ByteChunkQ) WriteBuffer() []byte {
-	return q.writeBuffer
+func (q *ByteChunkQ) CommitWrite() {
+	atomic.AddInt64(&q.write.Value, q.chunk)
 }
 
-func (q *ByteChunkQ) Read() bool {
+func (q *ByteChunkQ) ReadBuffer() []byte {
 	chunk := q.chunk
 	read := q.read.Value
 	readTo := read + chunk
@@ -68,12 +58,14 @@ func (q *ByteChunkQ) Read() bool {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if readTo > q.writeCache.Value {
 			q.readFail.Value++
-			return false
+			return nil
 		}
 	}
 	idx := read & q.mask
 	nxt := idx + chunk
-	copy(q.readBuffer, q.ringBuffer[idx:nxt])
-	atomic.AddInt64(&q.read.Value, chunk)
-	return true
+	return q.ringBuffer[idx:nxt]
+}
+
+func (q *ByteChunkQ) CommitRead() {
+	atomic.AddInt64(&q.read.Value, q.chunk)
 }

@@ -11,8 +11,6 @@ import (
 
 type UnsafeByteChunkQ struct {
 	paddedCounters
-	readBuffer  []byte
-	writeBuffer []byte
 	ringBuffer  []byte
 	size        int64
 	chunk       int64
@@ -28,17 +26,11 @@ func NewUnsafeByteChunkQ(size int64, chunk int64) *UnsafeByteChunkQ {
 		panic(fmt.Sprintf("Size must be neatly divisible by chunk, (size) %d rem (chunk) %d = %d", size, chunk, size%chunk))
 	}
 	ringBuffer := padded.ByteSlice(int(size))
-	readBuffer := padded.ByteSlice(int(chunk))
-	writeBuffer := padded.ByteSlice(int(chunk))
-	q := &UnsafeByteChunkQ{ringBuffer: ringBuffer, readBuffer: readBuffer, writeBuffer: writeBuffer, size: size, chunk: chunk, mask: size - 1}
+	q := &UnsafeByteChunkQ{ringBuffer: ringBuffer, size: size, chunk: chunk, mask: size - 1}
 	return q
 }
 
-func (q *UnsafeByteChunkQ) ReadBuffer() []byte {
-	return q.readBuffer
-}
-
-func (q *UnsafeByteChunkQ) Write() bool {
+func (q *UnsafeByteChunkQ) WriteBuffer() []byte {
 	chunk := q.chunk
 	write := q.write.Value
 	writeTo := write + chunk
@@ -47,22 +39,19 @@ func (q *UnsafeByteChunkQ) Write() bool {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit > q.readCache.Value {
 			q.writeFail.Value++
-			return false
-
+			return nil
 		}
 	}
 	idx := write & q.mask
 	nxt := idx + chunk
-	copy(q.ringBuffer[idx:nxt], q.writeBuffer)
-	fatomic.LazyStore(&q.write.Value, q.write.Value+chunk)
-	return true
+	return q.ringBuffer[idx:nxt]
 }
 
-func (q *UnsafeByteChunkQ) WriteBuffer() []byte {
-	return q.writeBuffer
+func (q *UnsafeByteChunkQ) CommitWrite() {
+	fatomic.LazyStore(&q.write.Value, q.write.Value+q.chunk)
 }
 
-func (q *UnsafeByteChunkQ) Read() bool {
+func (q *UnsafeByteChunkQ) ReadBuffer() []byte {
 	chunk := q.chunk
 	read := q.read.Value
 	readTo := read + chunk
@@ -70,12 +59,14 @@ func (q *UnsafeByteChunkQ) Read() bool {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if readTo > q.writeCache.Value {
 			q.readFail.Value++
-			return false
+			return nil
 		}
 	}
 	idx := read & q.mask
 	nxt := idx + chunk
-	copy(q.readBuffer, q.ringBuffer[idx:nxt])
-	fatomic.LazyStore(&q.read.Value, q.read.Value+chunk)
-	return true
+	return q.ringBuffer[idx:nxt]
+}
+
+func (q *UnsafeByteChunkQ) CommitRead() {
+	fatomic.LazyStore(&q.read.Value, q.read.Value+q.chunk)
 }
