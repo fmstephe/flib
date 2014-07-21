@@ -55,10 +55,7 @@ func main() {
 }
 
 func printTimings(msgCount, nanos int64, name string) {
-	micros := nanos / 1000
-	millis := micros / 1000
-	seconds := millis / 1000
-	print(fmt.Sprintf("\n%s\n%s\nNanos   %d\nMicros  %d\nMillis  %d\nSeconds %d\n", name, fstrconv.ItoaComma(msgCount), nanos, micros, millis, seconds))
+	print(fmt.Sprintf("\n%s\nMsgs    %s\nNanos   %s\n", name, fstrconv.ItoaComma(msgCount), fstrconv.ItoaComma(nanos)))
 }
 
 func expect(sum, checksum int64) {
