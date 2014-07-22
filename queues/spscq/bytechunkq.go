@@ -10,8 +10,10 @@ import (
 type ByteChunkQ struct {
 	_prebuffer  padded.CacheBuffer
 	read        padded.Int64
+	readFail    padded.Int64
 	writeCache  padded.Int64
 	write       padded.Int64
+	writeFail   padded.Int64
 	readCache   padded.Int64
 	_midbuffer  padded.CacheBuffer
 	ringBuffer  []byte
@@ -49,6 +51,7 @@ func (q *ByteChunkQ) Write() bool {
 	if readLimit > q.readCache.Value {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit > q.readCache.Value {
+			q.writeFail.Value++
 			return false
 		}
 	}
@@ -70,6 +73,7 @@ func (q *ByteChunkQ) Read() bool {
 	if readTo > q.writeCache.Value {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if readTo > q.writeCache.Value {
+			q.readFail.Value++
 			return false
 		}
 	}

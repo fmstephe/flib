@@ -12,8 +12,10 @@ import (
 type UnsafePointerQ struct {
 	_prebuffer  padded.CacheBuffer
 	read        padded.Int64
+	readFail    padded.Int64
 	writeCache  padded.Int64
 	write       padded.Int64
+	writeFail   padded.Int64
 	readCache   padded.Int64
 	_midbuffer  padded.CacheBuffer
 	ringBuffer  []unsafe.Pointer
@@ -37,6 +39,7 @@ func (q *UnsafePointerQ) WriteSingle(val unsafe.Pointer) bool {
 	if readLimit == q.readCache.Value {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit == q.readCache.Value {
+			q.writeFail.Value++
 			return false
 		}
 	}
@@ -58,6 +61,9 @@ func (q *UnsafePointerQ) WriteBuffer(bufferSize int64) []unsafe.Pointer {
 			nxt = q.readCache.Value & q.mask
 		}
 	}
+	if idx == nxt {
+		q.writeFail.Value++
+	}
 	return q.ringBuffer[idx:nxt]
 }
 
@@ -70,6 +76,7 @@ func (q *UnsafePointerQ) ReadSingle() unsafe.Pointer {
 	if read == q.writeCache.Value {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if read == q.writeCache.Value {
+			q.readFail.Value++
 			return nil
 		}
 	}
@@ -89,6 +96,9 @@ func (q *UnsafePointerQ) ReadBuffer(bufferSize int64) []unsafe.Pointer {
 		if readTo > q.writeCache.Value {
 			nxt = q.writeCache.Value & q.mask
 		}
+	}
+	if idx == nxt {
+		q.readFail.Value++
 	}
 	return q.ringBuffer[idx:nxt]
 }

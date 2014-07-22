@@ -10,8 +10,10 @@ import (
 type ByteQ struct {
 	_prebuffer  padded.CacheBuffer
 	read        padded.Int64
+	readFail    padded.Int64
 	writeCache  padded.Int64
 	write       padded.Int64
+	writeFail   padded.Int64
 	readCache   padded.Int64
 	_midbuffer  padded.CacheBuffer
 	ringBuffer  []byte
@@ -37,6 +39,7 @@ func (q *ByteQ) Write(writeBuffer []byte) bool {
 	if readLimit > q.readCache.Value {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit > q.readCache.Value {
+			q.writeFail.Value++
 			return false
 		}
 	}
@@ -60,6 +63,7 @@ func (q *ByteQ) Read(readBuffer []byte) bool {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		write = q.writeCache.Value
 		if read == write {
+			q.readFail.Value++
 			return false
 		}
 	}
