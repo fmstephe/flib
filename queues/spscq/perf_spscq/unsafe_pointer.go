@@ -112,7 +112,7 @@ OUTER:
 		}
 	}
 	nanos := time.Now().UnixNano() - start
-	printTimings(msgCount, nanos, "upq")
+	printTimings(msgCount, nanos, q.WriteFails(), q.ReadFails(), "upq")
 	expect(sum, checksum)
 	done <- true
 }
@@ -132,7 +132,7 @@ func upqSingleDequeue(msgCount int64, q *spscq.UnsafePointerQ, done chan bool) {
 		checksum += i + 1
 	}
 	nanos := time.Now().UnixNano() - start
-	printTimings(msgCount, nanos, "upq")
+	printTimings(msgCount, nanos, q.WriteFails(), q.ReadFails(), "upq")
 	expect(sum, checksum)
 	done <- true
 }

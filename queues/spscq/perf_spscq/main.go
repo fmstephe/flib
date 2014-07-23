@@ -54,8 +54,12 @@ func main() {
 	}
 }
 
-func printTimings(msgCount, nanos int64, name string) {
-	print(fmt.Sprintf("\n%s\nMsgs    %s\nNanos   %s\n", name, fstrconv.ItoaComma(msgCount), fstrconv.ItoaComma(nanos)))
+func printTimings(msgs, nanos, writeFails, readFails int64, name string) {
+	sMsgs := fstrconv.ItoaComma(msgs)
+	sNanos := fstrconv.ItoaComma(nanos)
+	sWriteFails := fstrconv.ItoaComma(writeFails)
+	sReadFails := fstrconv.ItoaComma(readFails)
+	print(fmt.Sprintf("\n%s\nMsgs       %s\nNanos      %s\nwriteFails %s\nreadFails  %s\n", name, sMsgs, sNanos, sWriteFails, sReadFails))
 }
 
 func expect(sum, checksum int64) {

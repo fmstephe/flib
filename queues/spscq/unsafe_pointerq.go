@@ -10,14 +10,7 @@ import (
 )
 
 type UnsafePointerQ struct {
-	_prebuffer  padded.CacheBuffer
-	read        padded.Int64
-	readFail    padded.Int64
-	writeCache  padded.Int64
-	write       padded.Int64
-	writeFail   padded.Int64
-	readCache   padded.Int64
-	_midbuffer  padded.CacheBuffer
+	paddedCounters
 	ringBuffer  []unsafe.Pointer
 	size        int64
 	mask        int64

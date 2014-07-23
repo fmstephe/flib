@@ -112,7 +112,7 @@ OUTER:
 		}
 	}
 	nanos := time.Now().UnixNano() - start
-	printTimings(msgCount, nanos, "pq")
+	printTimings(msgCount, nanos, q.WriteFails(), q.ReadFails(), "pq")
 	expect(sum, checksum)
 	done <- true
 }
@@ -132,7 +132,7 @@ func pqSingleDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 		checksum += i + 1
 	}
 	nanos := time.Now().UnixNano() - start
-	printTimings(msgCount, nanos, "pq")
+	printTimings(msgCount, nanos, q.WriteFails(), q.ReadFails(), "pq")
 	expect(sum, checksum)
 	done <- true
 }
