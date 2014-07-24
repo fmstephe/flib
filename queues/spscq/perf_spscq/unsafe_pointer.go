@@ -48,12 +48,12 @@ OUTER:
 		for i := range buffer {
 			t++
 			if t > msgCount {
-				q.CommitWriteBuffer(int64(i))
+				q.CommitWriteBuffer()
 				break OUTER
 			}
 			buffer[i] = unsafe.Pointer(uintptr(uint(t)))
 		}
-		q.CommitWriteBuffer(int64(len(buffer)))
+		q.CommitWriteBuffer()
 		if t == msgCount {
 			break
 		}
@@ -100,13 +100,13 @@ OUTER:
 		for i := range buffer {
 			t++
 			if t > msgCount {
-				q.CommitReadBuffer(int64(i))
+				q.CommitReadBuffer()
 				break OUTER
 			}
 			sum += int64(uintptr(buffer[i]))
 			checksum += t
 		}
-		q.CommitReadBuffer(int64(len(buffer)))
+		q.CommitReadBuffer()
 		if t == msgCount {
 			break
 		}

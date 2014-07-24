@@ -58,11 +58,13 @@ func (q *UnsafePointerQ) WriteBuffer(bufferSize int64) []unsafe.Pointer {
 	if idx == nxt {
 		q.writeFail.Value++
 	}
+	q.writeSize.Value = nxt - idx
 	return q.ringBuffer[idx:nxt]
 }
 
-func (q *UnsafePointerQ) CommitWriteBuffer(writeSize int64) {
-	fatomic.LazyStore(&q.write.Value, q.write.Value+writeSize)
+func (q *UnsafePointerQ) CommitWriteBuffer() {
+	fatomic.LazyStore(&q.write.Value, q.write.Value+q.writeSize.Value)
+	q.writeSize.Value = 0
 }
 
 func (q *UnsafePointerQ) ReadSingle() unsafe.Pointer {
@@ -94,9 +96,11 @@ func (q *UnsafePointerQ) ReadBuffer(bufferSize int64) []unsafe.Pointer {
 	if idx == nxt {
 		q.readFail.Value++
 	}
+	q.readSize.Value = nxt - idx
 	return q.ringBuffer[idx:nxt]
 }
 
-func (q *UnsafePointerQ) CommitReadBuffer(readSize int64) {
-	fatomic.LazyStore(&q.read.Value, q.read.Value+readSize)
+func (q *UnsafePointerQ) CommitReadBuffer() {
+	fatomic.LazyStore(&q.read.Value, q.read.Value+q.readSize.Value)
+	q.readSize.Value = 0
 }
