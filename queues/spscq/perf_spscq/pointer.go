@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -38,7 +39,7 @@ func pqEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan boo
 
 func pqBatchEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
-	var t int64
+	t := int64(1)
 	var buffer []unsafe.Pointer
 	for t < msgCount {
 		size := fmath.Min(batchSize, msgCount-t)
@@ -81,9 +82,9 @@ func pqDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan boo
 func pqBatchDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
-	var sum int64
-	var checksum int64
-	var t int64
+	sum := int64(0)
+	checksum := int64(0)
+	t := int64(1)
 	var buffer []unsafe.Pointer
 	for t < msgCount {
 		buffer = q.ReadBuffer(batchSize)
@@ -109,13 +110,17 @@ func pqSingleDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 	sum := int64(0)
 	checksum := int64(0)
 	var v unsafe.Pointer
-	for i := int64(0); i < msgCount; i++ {
+	for i := int64(1); i <= msgCount; i++ {
 		v = q.ReadSingle()
 		for v == nil {
 			v = q.ReadSingle()
 		}
-		sum += int64(uintptr(v))
-		checksum += i + 1
+		pv := int64(uintptr(v))
+		sum += pv
+		checksum += i
+		if pv != i {
+			print(fmt.Sprintf("Bad message. Expected %d, found %d (found-expected = %d)", pv, i, pv-i))
+		}
 	}
 	nanos := time.Now().UnixNano() - start
 	printTimings(msgCount, nanos, q.WriteFails(), q.ReadFails(), "pq")
