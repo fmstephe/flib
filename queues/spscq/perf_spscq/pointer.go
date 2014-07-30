@@ -51,7 +51,7 @@ func pqBatchEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done cha
 			t++
 			buffer[i] = unsafe.Pointer(uintptr(uint(t)))
 		}
-		q.CommitWriteBuffer()
+		q.CommitWrite()
 	}
 	done <- true
 }
@@ -96,7 +96,7 @@ func pqBatchDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done cha
 			sum += int64(uintptr(buffer[i]))
 			checksum += t
 		}
-		q.CommitReadBuffer()
+		q.CommitRead()
 	}
 	nanos := time.Now().UnixNano() - start
 	printTimings(msgCount, nanos, q.WriteFails(), q.ReadFails(), "pq")

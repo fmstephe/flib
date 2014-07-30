@@ -29,17 +29,9 @@ func main() {
 		runtime.GC()
 		bcqTest(msgCount, *chunkSize, *qSize, *profile)
 	}
-	if *ubytechunkq || *all {
-		runtime.GC()
-		ubcqTest(msgCount, *chunkSize, *qSize, *profile)
-	}
 	if *pointerq || *all {
 		runtime.GC()
 		pqTest(msgCount, *batchSize, *qSize, *profile)
-	}
-	if *upointerq || *all {
-		runtime.GC()
-		upqTest(msgCount, *batchSize, *qSize, *profile)
 	}
 }
 

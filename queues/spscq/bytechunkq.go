@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/fmstephe/flib/fmath"
+	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 )
 
@@ -50,6 +51,10 @@ func (q *ByteChunkQ) CommitWrite() {
 	atomic.AddInt64(&q.write.Value, q.chunk)
 }
 
+func (q *ByteChunkQ) CommitWriteLazy() {
+	fatomic.LazyStore(&q.write.Value, q.write.Value+q.chunk)
+}
+
 func (q *ByteChunkQ) ReadBuffer() []byte {
 	chunk := q.chunk
 	read := q.read.Value
@@ -68,4 +73,8 @@ func (q *ByteChunkQ) ReadBuffer() []byte {
 
 func (q *ByteChunkQ) CommitRead() {
 	atomic.AddInt64(&q.read.Value, q.chunk)
+}
+
+func (q *ByteChunkQ) CommitReadLazy() {
+	fatomic.LazyStore(&q.read.Value, q.read.Value+q.chunk)
 }

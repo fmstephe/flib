@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/fmstephe/flib/fmath"
+	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 )
 
@@ -61,8 +62,13 @@ func (q *PointerQ) WriteBuffer(bufferSize int64) []unsafe.Pointer {
 	return q.ringBuffer[idx:nxt]
 }
 
-func (q *PointerQ) CommitWriteBuffer() {
+func (q *PointerQ) CommitWrite() {
 	atomic.AddInt64(&q.write.Value, q.writeSize.Value)
+	q.writeSize.Value = 0
+}
+
+func (q *PointerQ) CommitWriteLazy() {
+	fatomic.LazyStore(&q.write.Value, q.write.Value+q.writeSize.Value)
 	q.writeSize.Value = 0
 }
 
@@ -99,7 +105,12 @@ func (q *PointerQ) ReadBuffer(bufferSize int64) []unsafe.Pointer {
 	return q.ringBuffer[idx:nxt]
 }
 
-func (q *PointerQ) CommitReadBuffer() {
+func (q *PointerQ) CommitRead() {
 	atomic.AddInt64(&q.read.Value, q.readSize.Value)
+	q.readSize.Value = 0
+}
+
+func (q *PointerQ) CommitReadLazy() {
+	fatomic.LazyStore(&q.read.Value, q.read.Value+q.readSize.Value)
 	q.readSize.Value = 0
 }
