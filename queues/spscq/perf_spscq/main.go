@@ -9,14 +9,21 @@ import (
 )
 
 var (
-	all         = flag.Bool("all", false, "Runs all queue tests")
-	byteq       = flag.Bool("bq", false, "Runs ByteQ")
-	bytechunkq  = flag.Bool("bcq", false, "Runs ByteChunkQ")
-	pointerq    = flag.Bool("pq", false, "Runs PointerQ")
+	all = flag.Bool("all", false, "Runs all queue tests")
+	// ByteQ
+	byteq     = flag.Bool("bq", false, "Runs ByteQ")
+	byteqLazy = flag.Bool("bql", false, "Runs ByteQ with lazy writes")
+	bytesSize = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ")
+	// ByteChunkQ
+	bytechunkq     = flag.Bool("bcq", false, "Runs ByteChunkQ")
+	bytechunkqLazy = flag.Bool("bcql", false, "Runs ByteChunkQ with lazy writes")
+	chunkSize      = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ")
+	// PointerQ
+	pointerq     = flag.Bool("pq", false, "Runs PointerQ")
+	pointerqLazy = flag.Bool("pql", false, "Runs PointerQ with lazy writes")
+	batchSize    = flag.Int64("batchSize", 1, "The size of the read/write batches used by PointerQ")
+	// Addtional flags
 	millionMsgs = flag.Int64("mm", 10, "The number of messages (in millions) to send")
-	bytesSize   = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ")
-	chunkSize   = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ")
-	batchSize   = flag.Int64("batchSize", 1, "The size of the read/write batches used by PointerQ")
 	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue")
 	profile     = flag.Bool("profile", false, "Activates the Go profiler, outputting into a prof_* file.")
 )
@@ -29,13 +36,25 @@ func main() {
 		runtime.GC()
 		bqTest(msgCount, *bytesSize, *qSize, *profile)
 	}
+	if *byteqLazy || *all {
+		runtime.GC()
+		bqlTest(msgCount, *bytesSize, *qSize, *profile)
+	}
 	if *bytechunkq || *all {
 		runtime.GC()
 		bcqTest(msgCount, *chunkSize, *qSize, *profile)
 	}
+	if *bytechunkqLazy || *all {
+		runtime.GC()
+		bcqlTest(msgCount, *chunkSize, *qSize, *profile)
+	}
 	if *pointerq || *all {
 		runtime.GC()
 		pqTest(msgCount, *batchSize, *qSize, *profile)
+	}
+	if *pointerqLazy || *all {
+		runtime.GC()
+		pqlTest(msgCount, *batchSize, *qSize, *profile)
 	}
 }
 
