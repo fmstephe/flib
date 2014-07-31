@@ -28,6 +28,22 @@ func NewPointerQ(size int64) *PointerQ {
 }
 
 func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
+	b := q.writeSingle(val)
+	if b {
+		atomic.AddInt64(&q.write.Value, 1)
+	}
+	return b
+}
+
+func (q *PointerQ) WriteSingleLazy(val unsafe.Pointer) bool {
+	b := q.writeSingle(val)
+	if b {
+		fatomic.LazyStore(&q.write.Value, q.write.Value+1)
+	}
+	return b
+}
+
+func (q *PointerQ) writeSingle(val unsafe.Pointer) bool {
 	write := q.write.Value
 	readLimit := write - q.size
 	if readLimit == q.readCache.Value {
@@ -38,7 +54,6 @@ func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
 		}
 	}
 	q.ringBuffer[write&q.mask] = val
-	atomic.AddInt64(&q.write.Value, 1)
 	return true
 }
 
@@ -73,6 +88,22 @@ func (q *PointerQ) CommitWriteLazy() {
 }
 
 func (q *PointerQ) ReadSingle() unsafe.Pointer {
+	val := q.readSingle()
+	if val != nil {
+		atomic.AddInt64(&q.read.Value, 1)
+	}
+	return val
+}
+
+func (q *PointerQ) ReadSingleLazy() unsafe.Pointer {
+	val := q.readSingle()
+	if val != nil {
+		fatomic.LazyStore(&q.read.Value, q.read.Value+1)
+	}
+	return val
+}
+
+func (q *PointerQ) readSingle() unsafe.Pointer {
 	read := q.read.Value
 	if read == q.writeCache.Value {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
@@ -82,7 +113,6 @@ func (q *PointerQ) ReadSingle() unsafe.Pointer {
 		}
 	}
 	val := q.ringBuffer[read&q.mask]
-	atomic.AddInt64(&q.read.Value, 1)
 	return val
 }
 
