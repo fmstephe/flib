@@ -10,11 +10,11 @@ import (
 
 var (
 	all         = flag.Bool("all", false, "Runs all queue tests")
+	byteq       = flag.Bool("bq", false, "Runs ByteQ")
 	bytechunkq  = flag.Bool("bcq", false, "Runs ByteChunkQ")
 	pointerq    = flag.Bool("pq", false, "Runs PointerQ")
-	ubytechunkq = flag.Bool("ubcq", false, "Runs UnsafeByteChunkQ")
-	upointerq   = flag.Bool("upq", false, "Runs UnsafePointerQ")
 	millionMsgs = flag.Int64("mm", 10, "The number of messages (in millions) to send")
+	bytesSize   = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ")
 	chunkSize   = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ")
 	batchSize   = flag.Int64("batchSize", 1, "The size of the read/write batches used by PointerQ")
 	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue")
@@ -25,6 +25,10 @@ func main() {
 	runtime.GOMAXPROCS(4)
 	flag.Parse()
 	var msgCount int64 = (*millionMsgs) * 1000 * 1000
+	if *byteq || *all {
+		runtime.GC()
+		bqTest(msgCount, *bytesSize, *qSize, *profile)
+	}
 	if *bytechunkq || *all {
 		runtime.GC()
 		bcqTest(msgCount, *chunkSize, *qSize, *profile)
