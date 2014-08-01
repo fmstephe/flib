@@ -4,29 +4,25 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 )
 
 type ByteChunkQ struct {
-	paddedCounters
+	_prebuffer padded.CacheBuffer
+	commonQ
+	_midbuffer  padded.CacheBuffer
 	ringBuffer  []byte
-	size        int64
 	chunk       int64
-	mask        int64
 	_postbuffer padded.CacheBuffer
 }
 
 func NewByteChunkQ(size int64, chunk int64) *ByteChunkQ {
-	if !fmath.PowerOfTwo(size) {
-		panic(fmt.Sprintf("Size must be a power of two, size = %d", size))
-	}
 	if size%chunk != 0 {
 		panic(fmt.Sprintf("Size must be neatly divisible by chunk, (size) %d rem (chunk) %d = %d", size, chunk, size%chunk))
 	}
 	ringBuffer := padded.ByteSlice(int(size))
-	q := &ByteChunkQ{ringBuffer: ringBuffer, size: size, chunk: chunk, mask: size - 1}
+	q := &ByteChunkQ{ringBuffer: ringBuffer, commonQ: newCommonQ(size), chunk: chunk}
 	return q
 }
 

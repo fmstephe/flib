@@ -1,7 +1,6 @@
 package spscq
 
 import (
-	"fmt"
 	"sync/atomic"
 
 	"github.com/fmstephe/flib/fmath"
@@ -10,19 +9,16 @@ import (
 )
 
 type ByteQ struct {
-	paddedCounters
+	_prebuffer padded.CacheBuffer
+	commonQ
+	_midbuffer  padded.CacheBuffer
 	ringBuffer  []byte
-	size        int64
-	mask        int64
 	_postbuffer padded.CacheBuffer
 }
 
 func NewByteQ(size int64) *ByteQ {
-	if !fmath.PowerOfTwo(size) {
-		panic(fmt.Sprintf("Size (%d) must be a power of two", size))
-	}
 	ringBuffer := padded.ByteSlice(int(size))
-	q := &ByteQ{ringBuffer: ringBuffer, size: size, mask: size - 1}
+	q := &ByteQ{ringBuffer: ringBuffer, commonQ: newCommonQ(size)}
 	return q
 }
 

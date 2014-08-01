@@ -1,7 +1,6 @@
 package spscq
 
 import (
-	"fmt"
 	"sync/atomic"
 	"unsafe"
 
@@ -11,19 +10,16 @@ import (
 )
 
 type PointerQ struct {
-	paddedCounters
+	_prebuffer padded.CacheBuffer
+	commonQ
+	_midbuffer  padded.CacheBuffer
 	ringBuffer  []unsafe.Pointer
-	size        int64
-	mask        int64
 	_postbuffer padded.CacheBuffer
 }
 
 func NewPointerQ(size int64) *PointerQ {
-	if !fmath.PowerOfTwo(size) {
-		panic(fmt.Sprintf("Size must be a power of two, size = %d", size))
-	}
 	ringBuffer := padded.PointerSlice(int(size))
-	q := &PointerQ{ringBuffer: ringBuffer, size: size, mask: size - 1}
+	q := &PointerQ{ringBuffer: ringBuffer, commonQ: newCommonQ(size)}
 	return q
 }
 
