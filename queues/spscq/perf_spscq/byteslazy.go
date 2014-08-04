@@ -28,10 +28,18 @@ func bqlTest(msgCount, msgSize, qSize int64, profile bool) {
 
 func bqlEnqueue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 	runtime.LockOSThread()
-	writeBuffer := make([]byte, msgSize)
 	for i := int64(0); i < msgCount; i++ {
+		writeBuffer := q.WriteBuffer(msgSize)
+		for len(writeBuffer) == 0 {
+			writeBuffer = q.WriteBuffer(msgSize)
+		}
 		writeBuffer[0] = byte(i)
-		for w := false; w == false; w = q.WriteLazy(writeBuffer) {
+		rem := msgSize - int64(len(writeBuffer))
+		q.CommitWriteLazy()
+		for rem > 0 {
+			writeBuffer = q.WriteBuffer(rem)
+			rem -= int64(len(writeBuffer))
+			q.CommitWriteLazy()
 		}
 	}
 	done <- true
@@ -40,17 +48,25 @@ func bqlEnqueue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 func bqlDequeue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
-	readBuffer := make([]byte, msgSize)
 	sum := int64(0)
 	checksum := int64(0)
 	for i := int64(0); i < msgCount; i++ {
-		for r := false; r == false; r = q.ReadLazy(readBuffer) {
+		readBuffer := q.ReadBuffer(msgSize)
+		for len(readBuffer) == 0 {
+			readBuffer = q.ReadBuffer(msgSize)
 		}
 		sum += int64(readBuffer[0])
 		checksum += int64(byte(i))
+		rem := msgSize - int64(len(readBuffer))
+		q.CommitReadLazy()
+		for rem > 0 {
+			readBuffer = q.ReadBuffer(rem)
+			rem -= int64(len(readBuffer))
+			q.CommitReadLazy()
+		}
 	}
 	nanos := time.Now().UnixNano() - start
-	printTimings(msgCount, nanos, q.WriteFails(), q.ReadFails(), "bql")
+	printTimings(msgCount, nanos, q.ReadFails(), q.ReadFails(), "bql")
 	expect(sum, checksum)
 	done <- true
 }

@@ -26,86 +26,61 @@ func NewByteQ(size int64) *ByteQ {
 	return q
 }
 
-func (q *ByteQ) Write(writeBuffer []byte) bool {
-	b := q.writeBuffer(writeBuffer)
-	if b {
-		chunk := int64(len(writeBuffer))
-		atomic.AddInt64(&q.write.Value, chunk)
-	}
-	return b
-}
-
-func (q *ByteQ) WriteLazy(writeBuffer []byte) bool {
-	b := q.writeBuffer(writeBuffer)
-	if b {
-		chunk := int64(len(writeBuffer))
-		fatomic.LazyStore(&q.write.Value, q.write.Value+chunk)
-	}
-	return b
-}
-
-func (q *ByteQ) writeBuffer(writeBuffer []byte) bool {
-	chunk := int64(len(writeBuffer))
+func (q *ByteQ) WriteBuffer(bufferSize int64) []byte {
 	write := q.write.Value
-	writeTo := write + chunk
+	idx := write & q.mask
+	bufferSize = fmath.Min(bufferSize, q.size-idx)
+	writeTo := write + bufferSize
 	readLimit := writeTo - q.size
+	nxt := idx + bufferSize
 	if readLimit > q.readCache.Value {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit > q.readCache.Value {
-			q.writeFail.Value++
-			return false
+			nxt = q.readCache.Value & q.mask
 		}
 	}
-	idx := write & q.mask
-	nxt := idx + chunk
-	if nxt <= q.size {
-		copy(q.ringBuffer[idx:nxt], writeBuffer)
-	} else {
-		mid := q.size - idx
-		copy(q.ringBuffer[idx:], writeBuffer[:mid])
-		copy(q.ringBuffer, writeBuffer[mid:])
+	if idx == nxt {
+		q.writeFail.Value++
 	}
-	return true
+	q.writeSize.Value = nxt - idx
+	return q.ringBuffer[idx:nxt]
 }
 
-func (q *ByteQ) Read(readBuffer []byte) bool {
-	b := q.readBuffer(readBuffer)
-	if b {
-		chunk := int64(len(readBuffer))
-		atomic.AddInt64(&q.read.Value, chunk)
-	}
-	return b
+func (q *ByteQ) CommitWrite() {
+	atomic.AddInt64(&q.write.Value, q.writeSize.Value)
+	q.writeSize.Value = 0
 }
 
-func (q *ByteQ) ReadLazy(readBuffer []byte) bool {
-	b := q.readBuffer(readBuffer)
-	if b {
-		chunk := int64(len(readBuffer))
-		fatomic.LazyStore(&q.read.Value, q.read.Value+chunk)
-	}
-	return b
+func (q *ByteQ) CommitWriteLazy() {
+	fatomic.LazyStore(&q.write.Value, q.write.Value+q.writeSize.Value)
+	q.writeSize.Value = 0
 }
 
-func (q *ByteQ) readBuffer(readBuffer []byte) bool {
+func (q *ByteQ) ReadBuffer(bufferSize int64) []byte {
 	read := q.read.Value
-	write := q.writeCache.Value
-	if read == write {
+	idx := read & q.mask
+	bufferSize = fmath.Min(bufferSize, q.size-idx)
+	readTo := read + bufferSize
+	nxt := idx + bufferSize
+	if readTo > q.writeCache.Value {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
-		write = q.writeCache.Value
-		if read == write {
-			q.readFail.Value++
-			return false
+		if readTo > q.writeCache.Value {
+			nxt = q.writeCache.Value & q.mask
 		}
 	}
-	chunk := fmath.Min(write-read, int64(len(readBuffer)))
-	idx := read & q.mask
-	nxt := idx + chunk
-	if nxt <= q.size {
-		copy(readBuffer, q.ringBuffer[idx:nxt])
-	} else {
-		mid := q.size - idx
-		copy(readBuffer[:mid], q.ringBuffer[idx:])
-		copy(readBuffer[mid:], q.ringBuffer)
+	if idx == nxt {
+		q.readFail.Value++
 	}
-	return true
+	q.readSize.Value = nxt - idx
+	return q.ringBuffer[idx:nxt]
+}
+
+func (q *ByteQ) CommitRead() {
+	atomic.AddInt64(&q.read.Value, q.readSize.Value)
+	q.readSize.Value = 0
+}
+
+func (q *ByteQ) CommitReadLazy() {
+	fatomic.LazyStore(&q.read.Value, q.read.Value+q.readSize.Value)
+	q.readSize.Value = 0
 }
