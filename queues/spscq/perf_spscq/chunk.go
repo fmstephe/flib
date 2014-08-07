@@ -54,7 +54,7 @@ func bcqDequeue(msgCount int64, q *spscq.ByteChunkQ, done chan bool) {
 		q.CommitRead()
 	}
 	nanos := time.Now().UnixNano() - start
-	printSummary(msgCount, nanos, q.WriteFails(), q.ReadFails(), "bcq")
+	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "bcq")
 	expect(sum, checksum)
 	done <- true
 }

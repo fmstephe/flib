@@ -99,7 +99,7 @@ func pqlBatchDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done ch
 		q.CommitReadLazy()
 	}
 	nanos := time.Now().UnixNano() - start
-	printSummary(msgCount, nanos, q.WriteFails(), q.ReadFails(), "pql")
+	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pql")
 	expect(sum, checksum)
 	done <- true
 }
@@ -123,7 +123,7 @@ func pqlSingleDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 		}
 	}
 	nanos := time.Now().UnixNano() - start
-	printSummary(msgCount, nanos, q.WriteFails(), q.ReadFails(), "pql")
+	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pql")
 	expect(sum, checksum)
 	done <- true
 }

@@ -14,15 +14,15 @@ type commonQ struct {
 	mask       int64
 	_ropadding padded.CacheBuffer
 	// Writer fields
-	write     padded.Int64
-	writeSize padded.Int64
-	writeFail padded.Int64
-	readCache padded.Int64
+	write        padded.Int64
+	writeSize    padded.Int64
+	failedWrites padded.Int64
+	readCache    padded.Int64
 	// Reader fields
-	read       padded.Int64
-	readSize   padded.Int64
-	readFail   padded.Int64
-	writeCache padded.Int64
+	read        padded.Int64
+	readSize    padded.Int64
+	failedReads padded.Int64
+	writeCache  padded.Int64
 }
 
 func newCommonQ(size int64) commonQ {
@@ -47,7 +47,7 @@ func (q *commonQ) writeBuffer(bufferSize int64) (int64, int64) {
 		}
 	}
 	if from == to {
-		q.writeFail.Value++
+		q.failedWrites.Value++
 	}
 	q.writeSize.Value = to - from
 	return from, to
@@ -76,7 +76,7 @@ func (q *commonQ) readBuffer(bufferSize int64) (int64, int64) {
 		}
 	}
 	if idx == nxt {
-		q.readFail.Value++
+		q.failedReads.Value++
 	}
 	q.readSize.Value = nxt - idx
 	return idx, nxt
@@ -92,10 +92,10 @@ func (q *commonQ) CommitReadLazy() {
 	q.readSize.Value = 0
 }
 
-func (c *commonQ) WriteFails() int64 {
-	return atomic.LoadInt64(&c.writeFail.Value)
+func (c *commonQ) FailedWrites() int64 {
+	return atomic.LoadInt64(&c.failedWrites.Value)
 }
 
-func (c *commonQ) ReadFails() int64 {
-	return atomic.LoadInt64(&c.readFail.Value)
+func (c *commonQ) FailedReads() int64 {
+	return atomic.LoadInt64(&c.failedReads.Value)
 }

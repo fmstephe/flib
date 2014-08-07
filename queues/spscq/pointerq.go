@@ -44,7 +44,7 @@ func (q *PointerQ) writeSingle(val unsafe.Pointer) bool {
 	if readLimit == q.readCache.Value {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit == q.readCache.Value {
-			q.writeFail.Value++
+			q.failedWrites.Value++
 			return false
 		}
 	}
@@ -78,7 +78,7 @@ func (q *PointerQ) readSingle() unsafe.Pointer {
 	if read == q.writeCache.Value {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if read == q.writeCache.Value {
-			q.readFail.Value++
+			q.failedReads.Value++
 			return nil
 		}
 	}

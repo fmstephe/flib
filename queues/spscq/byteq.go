@@ -36,7 +36,7 @@ func (q *ByteQ) WriteBuffer(bufferSize int64) []byte {
 		}
 	}
 	if idx == nxt {
-		q.writeFail.Value++
+		q.failedWrites.Value++
 	}
 	q.writeSize.Value = nxt - idx
 	return q.ringBuffer[idx:nxt]
@@ -65,7 +65,7 @@ func (q *ByteQ) ReadBuffer(bufferSize int64) []byte {
 		}
 	}
 	if idx == nxt {
-		q.readFail.Value++
+		q.failedReads.Value++
 	}
 	q.readSize.Value = nxt - idx
 	return q.ringBuffer[idx:nxt]

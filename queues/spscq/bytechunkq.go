@@ -34,7 +34,7 @@ func (q *ByteChunkQ) WriteBuffer() []byte {
 	if readLimit > q.readCache.Value {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit > q.readCache.Value {
-			q.writeFail.Value++
+			q.failedWrites.Value++
 			return nil
 		}
 	}
@@ -58,7 +58,7 @@ func (q *ByteChunkQ) ReadBuffer() []byte {
 	if readTo > q.writeCache.Value {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if readTo > q.writeCache.Value {
-			q.readFail.Value++
+			q.failedReads.Value++
 			return nil
 		}
 	}
