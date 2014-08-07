@@ -58,12 +58,12 @@ func main() {
 	}
 }
 
-func printSummary(msgs, nanos, failedWritess, failedReadss int64, name string) {
+func printSummary(msgs, nanos, failedWrites, failedReads int64, name string) {
 	sMsgs := fstrconv.ItoaComma(msgs)
 	sNanos := fstrconv.ItoaComma(nanos)
-	sFailedWrites := fstrconv.ItoaComma(failedWritess)
-	sFailedReads := fstrconv.ItoaComma(failedReadss)
-	print(fmt.Sprintf("\n%s\nMsgs       %s\nNanos      %s\nfailedWritess %s\nfailedReadss  %s\n", name, sMsgs, sNanos, sFailedWrites, sFailedReads))
+	sFailedWrites := fstrconv.ItoaComma(failedWrites)
+	sFailedReads := fstrconv.ItoaComma(failedReads)
+	print(fmt.Sprintf("\n%s\nMsgs       %s\nNanos      %s\nfailedWrites %s\nfailedReads  %s\n", name, sMsgs, sNanos, sFailedWrites, sFailedReads))
 }
 
 func expect(sum, checksum int64) {
