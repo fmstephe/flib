@@ -58,7 +58,7 @@ func main() {
 	}
 }
 
-func printTimings(msgs, nanos, writeFails, readFails int64, name string) {
+func printSummary(msgs, nanos, writeFails, readFails int64, name string) {
 	sMsgs := fstrconv.ItoaComma(msgs)
 	sNanos := fstrconv.ItoaComma(nanos)
 	sWriteFails := fstrconv.ItoaComma(writeFails)

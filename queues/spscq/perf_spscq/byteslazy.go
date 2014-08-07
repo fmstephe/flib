@@ -66,7 +66,7 @@ func bqlDequeue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 		}
 	}
 	nanos := time.Now().UnixNano() - start
-	printTimings(msgCount, nanos, q.WriteFails(), q.ReadFails(), "bql")
+	printSummary(msgCount, nanos, q.WriteFails(), q.ReadFails(), "bql")
 	expect(sum, checksum)
 	done <- true
 }
