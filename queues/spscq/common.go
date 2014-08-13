@@ -33,13 +33,13 @@ func newCommonQ(size int64) commonQ {
 	return cq
 }
 
-func (q *commonQ) writeBuffer(bufferSize int64) (int64, int64) {
+func (q *commonQ) writeBuffer(bufferSize int64) (from int64, to int64) {
 	write := q.write.Value
-	from := write & q.mask
+	from = write & q.mask
 	bufferSize = fmath.Min(bufferSize, q.size-from)
 	writeTo := write + bufferSize
 	readLimit := writeTo - q.size
-	to := from + bufferSize
+	to = from + bufferSize
 	if readLimit > q.readCache.Value {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit > q.readCache.Value {
@@ -63,23 +63,23 @@ func (q *commonQ) CommitWriteLazy() {
 	q.writeSize.Value = 0
 }
 
-func (q *commonQ) readBuffer(bufferSize int64) (int64, int64) {
+func (q *commonQ) readBuffer(bufferSize int64) (from int64, to int64) {
 	read := q.read.Value
-	idx := read & q.mask
-	bufferSize = fmath.Min(bufferSize, q.size-idx)
+	from = read & q.mask
+	bufferSize = fmath.Min(bufferSize, q.size-from)
 	readTo := read + bufferSize
-	nxt := idx + bufferSize
+	to = from + bufferSize
 	if readTo > q.writeCache.Value {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if readTo > q.writeCache.Value {
-			nxt = q.writeCache.Value & q.mask
+			to = q.writeCache.Value & q.mask
 		}
 	}
-	if idx == nxt {
+	if from == to {
 		q.failedReads.Value++
 	}
-	q.readSize.Value = nxt - idx
-	return idx, nxt
+	q.readSize.Value = to - from
+	return from, to
 }
 
 func (q *commonQ) CommitRead() {
@@ -90,6 +90,37 @@ func (q *commonQ) CommitRead() {
 func (q *commonQ) CommitReadLazy() {
 	fatomic.LazyStore(&q.read.Value, q.read.Value+q.readSize.Value)
 	q.readSize.Value = 0
+}
+
+func (q *commonQ) writeWrappingBuffer(bufferSize int64) (from int64, to int64, wrap int64) {
+	writeTo := q.write.Value + bufferSize
+	readLimit := writeTo - q.size
+	if readLimit > q.readCache.Value {
+		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
+		if readLimit > q.readCache.Value {
+			q.failedWrites.Value++
+			return 0, 0, 0
+		}
+	}
+	from = q.write.Value & q.mask
+	to = fmath.Min(from+bufferSize, q.size)
+	wrap = bufferSize - (to - from)
+	return from, to, wrap
+}
+
+func (q *commonQ) readWrappingBuffer(bufferSize int64) (from int64, to int64, wrap int64) {
+	readTo := q.read.Value + bufferSize
+	if readTo > q.writeCache.Value {
+		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
+		if readTo > q.writeCache.Value {
+			q.failedReads.Value++
+			return 0, 0, 0
+		}
+	}
+	from = q.read.Value & q.mask
+	to = fmath.Min(from+bufferSize, q.size)
+	wrap = bufferSize - (to - from)
+	return from, to, wrap
 }
 
 func (c *commonQ) FailedWrites() int64 {

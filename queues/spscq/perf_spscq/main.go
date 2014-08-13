@@ -11,9 +11,10 @@ import (
 var (
 	all = flag.Bool("all", false, "Runs all queue tests")
 	// ByteQ
-	byteq     = flag.Bool("bq", false, "Runs ByteQ")
-	byteqLazy = flag.Bool("bql", false, "Runs ByteQ with lazy writes")
-	bytesSize = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ")
+	byteq      = flag.Bool("bq", false, "Runs ByteQ")
+	byteqSlice = flag.Bool("bqs", false, "Runs ByteQ using slice copying")
+	byteqLazy  = flag.Bool("bql", false, "Runs ByteQ with lazy writes")
+	bytesSize  = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ")
 	// ByteChunkQ
 	bytechunkq     = flag.Bool("bcq", false, "Runs ByteChunkQ")
 	bytechunkqLazy = flag.Bool("bcql", false, "Runs ByteChunkQ with lazy writes")
@@ -35,6 +36,10 @@ func main() {
 	if *byteq || *all {
 		runtime.GC()
 		bqTest(msgCount, *bytesSize, *qSize, *profile)
+	}
+	if *byteqSlice || *all {
+		runtime.GC()
+		bqsTest(msgCount, *bytesSize, *qSize, *profile)
 	}
 	if *byteqLazy || *all {
 		runtime.GC()
