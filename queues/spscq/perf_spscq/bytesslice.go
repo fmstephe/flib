@@ -31,7 +31,7 @@ func bqsEnqueue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 	buffer := make([]byte, msgSize)
 	for i := int64(1); i <= msgCount; i++ {
 		buffer[0] = byte(i)
-		for w := false; w == false; w = q.WriteSlice(buffer) {
+		for w := false; w == false; w = q.Write(buffer) {
 		}
 	}
 	done <- true
@@ -44,7 +44,7 @@ func bqsDequeue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 	checksum := int64(0)
 	buffer := make([]byte, msgSize)
 	for i := int64(1); i <= msgCount; i++ {
-		for r := false; r == false; r = q.ReadSlice(buffer) {
+		for r := false; r == false; r = q.Read(buffer) {
 		}
 		sum += int64(buffer[0])
 		checksum += int64(byte(i))

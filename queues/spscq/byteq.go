@@ -29,7 +29,7 @@ func (q *ByteQ) AcquireRead(bufferSize int64) []byte {
 	return q.ringBuffer[from:to]
 }
 
-func (q *ByteQ) WriteSlice(buffer []byte) bool {
+func (q *ByteQ) Write(buffer []byte) bool {
 	bufferSize := int64(len(buffer))
 	from, to, wrap := q.writeWrappingBuffer(bufferSize)
 	if to == 0 {
@@ -43,7 +43,7 @@ func (q *ByteQ) WriteSlice(buffer []byte) bool {
 	return true
 }
 
-func (q *ByteQ) ReadSlice(buffer []byte) bool {
+func (q *ByteQ) Read(buffer []byte) bool {
 	bufferSize := int64(len(buffer))
 	from, to, wrap := q.readWrappingBuffer(bufferSize)
 	if to == 0 {
