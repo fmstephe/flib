@@ -26,7 +26,7 @@ func NewByteChunkQ(size int64, chunk int64) *ByteChunkQ {
 	return q
 }
 
-func (q *ByteChunkQ) WriteBuffer() []byte {
+func (q *ByteChunkQ) AcquireWrite() []byte {
 	chunk := q.chunk
 	write := q.write.Value
 	writeTo := write + chunk
@@ -43,15 +43,15 @@ func (q *ByteChunkQ) WriteBuffer() []byte {
 	return q.ringBuffer[idx:nxt]
 }
 
-func (q *ByteChunkQ) CommitWrite() {
+func (q *ByteChunkQ) ReleaseWrite() {
 	atomic.AddInt64(&q.write.Value, q.chunk)
 }
 
-func (q *ByteChunkQ) CommitWriteLazy() {
+func (q *ByteChunkQ) ReleaseWriteLazy() {
 	fatomic.LazyStore(&q.write.Value, q.write.Value+q.chunk)
 }
 
-func (q *ByteChunkQ) ReadBuffer() []byte {
+func (q *ByteChunkQ) AcquireRead() []byte {
 	chunk := q.chunk
 	read := q.read.Value
 	readTo := read + chunk
@@ -67,10 +67,10 @@ func (q *ByteChunkQ) ReadBuffer() []byte {
 	return q.ringBuffer[idx:nxt]
 }
 
-func (q *ByteChunkQ) CommitRead() {
+func (q *ByteChunkQ) ReleaseRead() {
 	atomic.AddInt64(&q.read.Value, q.chunk)
 }
 
-func (q *ByteChunkQ) CommitReadLazy() {
+func (q *ByteChunkQ) ReleaseReadLazy() {
 	fatomic.LazyStore(&q.read.Value, q.read.Value+q.chunk)
 }

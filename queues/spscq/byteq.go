@@ -19,13 +19,13 @@ func NewByteQ(size int64) *ByteQ {
 	return q
 }
 
-func (q *ByteQ) WriteBuffer(bufferSize int64) []byte {
-	from, to := q.writeBuffer(bufferSize)
+func (q *ByteQ) AcquireWrite(bufferSize int64) []byte {
+	from, to := q.acquireWrite(bufferSize)
 	return q.ringBuffer[from:to]
 }
 
-func (q *ByteQ) ReadBuffer(bufferSize int64) []byte {
-	from, to := q.readBuffer(bufferSize)
+func (q *ByteQ) AcquireRead(bufferSize int64) []byte {
+	from, to := q.acquireRead(bufferSize)
 	return q.ringBuffer[from:to]
 }
 

@@ -33,7 +33,7 @@ func newCommonQ(size int64) commonQ {
 	return cq
 }
 
-func (q *commonQ) writeBuffer(bufferSize int64) (from int64, to int64) {
+func (q *commonQ) acquireWrite(bufferSize int64) (from int64, to int64) {
 	write := q.write.Value
 	from = write & q.mask
 	bufferSize = fmath.Min(bufferSize, q.size-from)
@@ -53,17 +53,17 @@ func (q *commonQ) writeBuffer(bufferSize int64) (from int64, to int64) {
 	return from, to
 }
 
-func (q *commonQ) CommitWrite() {
+func (q *commonQ) ReleaseWrite() {
 	atomic.AddInt64(&q.write.Value, q.writeSize.Value)
 	q.writeSize.Value = 0
 }
 
-func (q *commonQ) CommitWriteLazy() {
+func (q *commonQ) ReleaseWriteLazy() {
 	fatomic.LazyStore(&q.write.Value, q.write.Value+q.writeSize.Value)
 	q.writeSize.Value = 0
 }
 
-func (q *commonQ) readBuffer(bufferSize int64) (from int64, to int64) {
+func (q *commonQ) acquireRead(bufferSize int64) (from int64, to int64) {
 	read := q.read.Value
 	from = read & q.mask
 	bufferSize = fmath.Min(bufferSize, q.size-from)
@@ -82,12 +82,12 @@ func (q *commonQ) readBuffer(bufferSize int64) (from int64, to int64) {
 	return from, to
 }
 
-func (q *commonQ) CommitRead() {
+func (q *commonQ) ReleaseRead() {
 	atomic.AddInt64(&q.read.Value, q.readSize.Value)
 	q.readSize.Value = 0
 }
 
-func (q *commonQ) CommitReadLazy() {
+func (q *commonQ) ReleaseReadLazy() {
 	fatomic.LazyStore(&q.read.Value, q.read.Value+q.readSize.Value)
 	q.readSize.Value = 0
 }

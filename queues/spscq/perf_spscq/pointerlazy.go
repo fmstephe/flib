@@ -43,15 +43,15 @@ func pqlBatchEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done ch
 	var buffer []unsafe.Pointer
 	for t < msgCount {
 		size := fmath.Min(batchSize, msgCount-t)
-		buffer = q.WriteBuffer(size)
+		buffer = q.AcquireWrite(size)
 		for buffer == nil {
-			buffer = q.WriteBuffer(size)
+			buffer = q.AcquireWrite(size)
 		}
 		for i := range buffer {
 			t++
 			buffer[i] = unsafe.Pointer(uintptr(uint(t)))
 		}
-		q.CommitWriteLazy()
+		q.ReleaseWriteLazy()
 	}
 	done <- true
 }
@@ -87,16 +87,16 @@ func pqlBatchDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done ch
 	t := int64(1)
 	var buffer []unsafe.Pointer
 	for t < msgCount {
-		buffer = q.ReadBuffer(batchSize)
+		buffer = q.AcquireRead(batchSize)
 		for buffer == nil {
-			buffer = q.ReadBuffer(batchSize)
+			buffer = q.AcquireRead(batchSize)
 		}
 		for i := range buffer {
 			t++
 			sum += int64(uintptr(buffer[i]))
 			checksum += t
 		}
-		q.CommitReadLazy()
+		q.ReleaseReadLazy()
 	}
 	nanos := time.Now().UnixNano() - start
 	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pql")

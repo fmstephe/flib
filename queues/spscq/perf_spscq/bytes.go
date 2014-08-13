@@ -29,17 +29,17 @@ func bqTest(msgCount, msgSize, qSize int64, profile bool) {
 func bqEnqueue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 	runtime.LockOSThread()
 	for i := int64(0); i < msgCount; i++ {
-		writeBuffer := q.WriteBuffer(msgSize)
+		writeBuffer := q.AcquireWrite(msgSize)
 		for len(writeBuffer) == 0 {
-			writeBuffer = q.WriteBuffer(msgSize)
+			writeBuffer = q.AcquireWrite(msgSize)
 		}
 		writeBuffer[0] = byte(i)
 		rem := msgSize - int64(len(writeBuffer))
-		q.CommitWrite()
+		q.ReleaseWrite()
 		for rem > 0 {
-			writeBuffer = q.WriteBuffer(rem)
+			writeBuffer = q.AcquireWrite(rem)
 			rem -= int64(len(writeBuffer))
-			q.CommitWrite()
+			q.ReleaseWrite()
 		}
 	}
 	done <- true
@@ -51,18 +51,18 @@ func bqDequeue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 	sum := int64(0)
 	checksum := int64(0)
 	for i := int64(0); i < msgCount; i++ {
-		readBuffer := q.ReadBuffer(msgSize)
+		readBuffer := q.AcquireRead(msgSize)
 		for len(readBuffer) == 0 {
-			readBuffer = q.ReadBuffer(msgSize)
+			readBuffer = q.AcquireRead(msgSize)
 		}
 		sum += int64(readBuffer[0])
 		checksum += int64(byte(i))
 		rem := msgSize - int64(len(readBuffer))
-		q.CommitRead()
+		q.ReleaseRead()
 		for rem > 0 {
-			readBuffer = q.ReadBuffer(rem)
+			readBuffer = q.AcquireRead(rem)
 			rem -= int64(len(readBuffer))
-			q.CommitRead()
+			q.ReleaseRead()
 		}
 	}
 	nanos := time.Now().UnixNano() - start

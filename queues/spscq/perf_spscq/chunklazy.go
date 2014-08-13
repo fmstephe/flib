@@ -29,12 +29,12 @@ func bcqlTest(msgCount, msgSize, qSize int64, profile bool) {
 func bcqlEnqueue(msgCount int64, q *spscq.ByteChunkQ, done chan bool) {
 	runtime.LockOSThread()
 	for i := int64(0); i < msgCount; i++ {
-		writeBuffer := q.WriteBuffer()
+		writeBuffer := q.AcquireWrite()
 		for writeBuffer == nil {
-			writeBuffer = q.WriteBuffer()
+			writeBuffer = q.AcquireWrite()
 		}
 		writeBuffer[0] = byte(i)
-		q.CommitWriteLazy()
+		q.ReleaseWriteLazy()
 	}
 	done <- true
 }
@@ -45,13 +45,13 @@ func bcqlDequeue(msgCount int64, q *spscq.ByteChunkQ, done chan bool) {
 	sum := int64(0)
 	checksum := int64(0)
 	for i := int64(0); i < msgCount; i++ {
-		readBuffer := q.ReadBuffer()
+		readBuffer := q.AcquireRead()
 		for readBuffer == nil {
-			readBuffer = q.ReadBuffer()
+			readBuffer = q.AcquireRead()
 		}
 		sum += int64(readBuffer[0])
 		checksum += int64(byte(i))
-		q.CommitReadLazy()
+		q.ReleaseReadLazy()
 	}
 	nanos := time.Now().UnixNano() - start
 	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "bcql")

@@ -52,8 +52,8 @@ func (q *PointerQ) writeSingle(val unsafe.Pointer) bool {
 	return true
 }
 
-func (q *PointerQ) WriteBuffer(bufferSize int64) []unsafe.Pointer {
-	from, to := q.writeBuffer(bufferSize)
+func (q *PointerQ) AcquireWrite(bufferSize int64) []unsafe.Pointer {
+	from, to := q.acquireWrite(bufferSize)
 	return q.ringBuffer[from:to]
 }
 
@@ -86,7 +86,7 @@ func (q *PointerQ) readSingle() unsafe.Pointer {
 	return val
 }
 
-func (q *PointerQ) ReadBuffer(bufferSize int64) []unsafe.Pointer {
-	from, to := q.readBuffer(bufferSize)
+func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
+	from, to := q.acquireRead(bufferSize)
 	return q.ringBuffer[from:to]
 }
