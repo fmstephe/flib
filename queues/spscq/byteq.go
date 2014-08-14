@@ -5,6 +5,24 @@ import (
 	"sync/atomic"
 )
 
+type ByteQueue interface {
+	// Simple Read/Write
+	Read([]byte) bool
+	Write([]byte) bool
+	//Acquire/Release Read
+	AcquireRead(int64) []byte
+	ReleaseRead()
+	ReleaseReadLazy()
+	//Acquire/Release Write
+	AcquireWrite(int64) []byte
+	ReleaseWrite()
+	ReleaseWriteLazy()
+}
+
+func NewByteQueue(size int64) ByteQueue {
+	return NewByteQ(size)
+}
+
 type ByteQ struct {
 	_prebuffer padded.CacheBuffer
 	commonQ

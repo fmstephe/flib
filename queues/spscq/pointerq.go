@@ -8,6 +8,29 @@ import (
 	"github.com/fmstephe/flib/fsync/padded"
 )
 
+type PointerQueue interface {
+	// Simple Read/Write
+	Read([]unsafe.Pointer) bool
+	Write([]unsafe.Pointer) bool
+	// Single Read/Write
+	ReadSingle() unsafe.Pointer
+	WriteSingle(unsafe.Pointer) bool
+	ReadSingleLazy() unsafe.Pointer
+	WriteSingleLazy(unsafe.Pointer) bool
+	//Acquire/Release Read
+	AcquireRead(int64) []unsafe.Pointer
+	ReleaseRead()
+	ReleaseReadLazy()
+	//Acquire/Release Write
+	AcquireWrite(int64) []unsafe.Pointer
+	ReleaseWrite()
+	ReleaseWriteLazy()
+}
+
+func NewPointerQueue(size int64) PointerQueue {
+	return NewPointerQ(size)
+}
+
 type PointerQ struct {
 	_prebuffer padded.CacheBuffer
 	commonQ

@@ -8,6 +8,21 @@ import (
 	"github.com/fmstephe/flib/fsync/padded"
 )
 
+type ByteChunkQueue interface {
+	//Acquire/Release Read
+	AcquireRead() []byte
+	ReleaseRead()
+	ReleaseReadLazy()
+	//Acquire/Release Write
+	AcquireWrite() []byte
+	ReleaseWrite()
+	ReleaseWriteLazy()
+}
+
+func NewByteChunkQueue(size, chunk int64) ByteChunkQueue {
+	return NewByteChunkQ(size, chunk)
+}
+
 type ByteChunkQ struct {
 	_prebuffer padded.CacheBuffer
 	commonQ
@@ -17,7 +32,7 @@ type ByteChunkQ struct {
 	_postbuffer padded.CacheBuffer
 }
 
-func NewByteChunkQ(size int64, chunk int64) *ByteChunkQ {
+func NewByteChunkQ(size, chunk int64) *ByteChunkQ {
 	if size%chunk != 0 {
 		panic(fmt.Sprintf("Size must be neatly divisible by chunk, (size) %d rem (chunk) %d = %d", size, chunk, size%chunk))
 	}
