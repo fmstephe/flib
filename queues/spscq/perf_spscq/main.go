@@ -20,9 +20,10 @@ var (
 	bytechunkqLazy = flag.Bool("bcql", false, "Runs ByteChunkQ with lazy writes")
 	chunkSize      = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ")
 	// PointerQ
-	pointerq     = flag.Bool("pq", false, "Runs PointerQ")
-	pointerqLazy = flag.Bool("pql", false, "Runs PointerQ with lazy writes")
-	batchSize    = flag.Int64("batchSize", 1, "The size of the read/write batches used by PointerQ")
+	pointerq      = flag.Bool("pq", false, "Runs PointerQ")
+	pointerqSlice = flag.Bool("pqs", false, "Runs PointerQ using slice copying")
+	pointerqLazy  = flag.Bool("pql", false, "Runs PointerQ with lazy writes")
+	batchSize     = flag.Int64("batchSize", 1, "The size of the read/write batches used by PointerQ")
 	// Addtional flags
 	millionMsgs = flag.Int64("mm", 10, "The number of messages (in millions) to send")
 	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue")
@@ -56,6 +57,10 @@ func main() {
 	if *pointerq || *all {
 		runtime.GC()
 		pqTest(msgCount, *batchSize, *qSize, *profile)
+	}
+	if *pointerqSlice || *all {
+		runtime.GC()
+		pqsTest(msgCount, *batchSize, *qSize, *profile)
 	}
 	if *pointerqLazy || *all {
 		runtime.GC()

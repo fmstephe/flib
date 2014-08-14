@@ -22,6 +22,44 @@ func NewPointerQ(size int64) *PointerQ {
 	return q
 }
 
+func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
+	from, to := q.acquireRead(bufferSize)
+	return q.ringBuffer[from:to]
+}
+
+func (q *PointerQ) AcquireWrite(bufferSize int64) []unsafe.Pointer {
+	from, to := q.acquireWrite(bufferSize)
+	return q.ringBuffer[from:to]
+}
+
+func (q *PointerQ) Read(buffer []unsafe.Pointer) bool {
+	bufferSize := int64(len(buffer))
+	from, to, wrap := q.readWrappingBuffer(bufferSize)
+	if to == 0 {
+		return false
+	}
+	copy(buffer, q.ringBuffer[from:to])
+	if wrap != 0 {
+		copy(buffer[bufferSize-wrap:], q.ringBuffer[:wrap])
+	}
+	atomic.AddInt64(&q.read.Value, bufferSize)
+	return true
+}
+
+func (q *PointerQ) Write(buffer []unsafe.Pointer) bool {
+	bufferSize := int64(len(buffer))
+	from, to, wrap := q.writeWrappingBuffer(bufferSize)
+	if to == 0 {
+		return false
+	}
+	copy(q.ringBuffer[from:to], buffer)
+	if wrap != 0 {
+		copy(q.ringBuffer[:wrap], buffer[bufferSize-wrap:])
+	}
+	atomic.AddInt64(&q.write.Value, bufferSize)
+	return true
+}
+
 func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
 	b := q.writeSingle(val)
 	if b {
@@ -52,11 +90,6 @@ func (q *PointerQ) writeSingle(val unsafe.Pointer) bool {
 	return true
 }
 
-func (q *PointerQ) AcquireWrite(bufferSize int64) []unsafe.Pointer {
-	from, to := q.acquireWrite(bufferSize)
-	return q.ringBuffer[from:to]
-}
-
 func (q *PointerQ) ReadSingle() unsafe.Pointer {
 	val := q.readSingle()
 	if val != nil {
@@ -84,9 +117,4 @@ func (q *PointerQ) readSingle() unsafe.Pointer {
 	}
 	val := q.ringBuffer[read&q.mask]
 	return val
-}
-
-func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
-	from, to := q.acquireRead(bufferSize)
-	return q.ringBuffer[from:to]
 }
