@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -30,14 +29,6 @@ func pqTest(msgCount, batchSize, qSize int64, profile bool) {
 }
 
 func pqEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
-	if batchSize > 1 {
-		pqBatchEnqueue(msgCount, q, batchSize, done)
-	} else {
-		pqSingleEnqueue(msgCount, q, done)
-	}
-}
-
-func pqBatchEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	t := int64(1)
 	var buffer []unsafe.Pointer
@@ -56,30 +47,7 @@ func pqBatchEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done cha
 	done <- true
 }
 
-func pqSingleEnqueue(msgCount int64, q *spscq.PointerQ, done chan bool) {
-	runtime.LockOSThread()
-	t := 1
-	var v unsafe.Pointer
-	for i := int64(0); i < msgCount; i++ {
-		v = unsafe.Pointer(uintptr(uint(t)))
-		w := q.WriteSingle(v)
-		for w == false {
-			w = q.WriteSingle(v)
-		}
-		t++
-	}
-	done <- true
-}
-
 func pqDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
-	if batchSize > 1 {
-		pqBatchDequeue(msgCount, q, batchSize, done)
-	} else {
-		pqSingleDequeue(msgCount, q, done)
-	}
-}
-
-func pqBatchDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
@@ -97,30 +65,6 @@ func pqBatchDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done cha
 			checksum += t
 		}
 		q.ReleaseRead()
-	}
-	nanos := time.Now().UnixNano() - start
-	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pq")
-	expect(sum, checksum)
-	done <- true
-}
-
-func pqSingleDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
-	runtime.LockOSThread()
-	start := time.Now().UnixNano()
-	sum := int64(0)
-	checksum := int64(0)
-	var v unsafe.Pointer
-	for i := int64(1); i <= msgCount; i++ {
-		v = q.ReadSingle()
-		for v == nil {
-			v = q.ReadSingle()
-		}
-		pv := int64(uintptr(v))
-		sum += pv
-		checksum += i
-		if pv != i {
-			print(fmt.Sprintf("Bad message. Expected %d, found %d (found-expected = %d)", pv, i, pv-i))
-		}
 	}
 	nanos := time.Now().UnixNano() - start
 	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pq")

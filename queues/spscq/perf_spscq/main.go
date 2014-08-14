@@ -12,7 +12,7 @@ var (
 	all = flag.Bool("all", false, "Runs all queue tests")
 	// ByteQ
 	byteq      = flag.Bool("bq", false, "Runs ByteQ")
-	byteqSlice = flag.Bool("bqs", false, "Runs ByteQ using slice copying")
+	byteqSlice = flag.Bool("bqs", false, "Runs ByteQ using whole buffer copying")
 	byteqLazy  = flag.Bool("bql", false, "Runs ByteQ with lazy writes")
 	bytesSize  = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ")
 	// ByteChunkQ
@@ -20,10 +20,12 @@ var (
 	bytechunkqLazy = flag.Bool("bcql", false, "Runs ByteChunkQ with lazy writes")
 	chunkSize      = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ")
 	// PointerQ
-	pointerq      = flag.Bool("pq", false, "Runs PointerQ")
-	pointerqSlice = flag.Bool("pqs", false, "Runs PointerQ using slice copying")
-	pointerqLazy  = flag.Bool("pql", false, "Runs PointerQ with lazy writes")
-	batchSize     = flag.Int64("batchSize", 1, "The size of the read/write batches used by PointerQ")
+	pointerq       = flag.Bool("pq", false, "Runs PointerQ")
+	pointerqSingle = flag.Bool("pqsingle", false, "Runs PointerQ reading and writing a pointer at a time")
+	pointerqSingleLazy = flag.Bool("pqsinglel", false, "Runs PointerQ lazily reading and writing a pointer at a time")
+	pointerqSlice  = flag.Bool("pqs", false, "Runs PointerQ using whole buffer copying")
+	pointerqLazy   = flag.Bool("pql", false, "Runs PointerQ with lazy writes")
+	batchSize      = flag.Int64("batchSize", 64, "The size of the read/write batches used by PointerQ")
 	// Addtional flags
 	millionMsgs = flag.Int64("mm", 10, "The number of messages (in millions) to send")
 	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue")
@@ -57,6 +59,14 @@ func main() {
 	if *pointerq || *all {
 		runtime.GC()
 		pqTest(msgCount, *batchSize, *qSize, *profile)
+	}
+	if *pointerqSingle || *all {
+		runtime.GC()
+		pqsingleTest(msgCount, *qSize, *profile)
+	}
+	if *pointerqSingleLazy || *all {
+		runtime.GC()
+		pqsinglelTest(msgCount, *qSize, *profile)
 	}
 	if *pointerqSlice || *all {
 		runtime.GC()
