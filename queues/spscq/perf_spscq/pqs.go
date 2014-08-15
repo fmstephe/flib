@@ -11,48 +11,48 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func pqsinglelTest(msgCount, qSize int64, profile bool) {
+func pqsTest(msgCount, qSize int64, profile bool) {
 	q := spscq.NewPointerQ(qSize)
 	done := make(chan bool)
 	if profile {
-		f, err := os.Create("prof_pqsinglel")
+		f, err := os.Create("prof_pqs")
 		if err != nil {
 			panic(err.Error())
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	go pqsinglelDequeue(msgCount, q, done)
-	go pqsinglelEnqueue(msgCount, q, done)
+	go pqsDequeue(msgCount, q, done)
+	go pqsEnqueue(msgCount, q, done)
 	<-done
 	<-done
 }
 
-func pqsinglelEnqueue(msgCount int64, q *spscq.PointerQ, done chan bool) {
+func pqsEnqueue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 	runtime.LockOSThread()
 	t := 1
 	var v unsafe.Pointer
 	for i := int64(0); i < msgCount; i++ {
 		v = unsafe.Pointer(uintptr(uint(t)))
-		w := q.WriteSingleLazy(v)
+		w := q.WriteSingle(v)
 		for w == false {
-			w = q.WriteSingleLazy(v)
+			w = q.WriteSingle(v)
 		}
 		t++
 	}
 	done <- true
 }
 
-func pqsinglelDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
+func pqsDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
 	checksum := int64(0)
 	var v unsafe.Pointer
 	for i := int64(1); i <= msgCount; i++ {
-		v = q.ReadSingleLazy()
+		v = q.ReadSingle()
 		for v == nil {
-			v = q.ReadSingleLazy()
+			v = q.ReadSingle()
 		}
 		pv := int64(uintptr(v))
 		sum += pv
@@ -62,7 +62,7 @@ func pqsinglelDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 		}
 	}
 	nanos := time.Now().UnixNano() - start
-	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pqsinglel")
+	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pqs")
 	expect(sum, checksum)
 	done <- true
 }

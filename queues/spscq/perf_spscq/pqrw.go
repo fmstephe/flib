@@ -7,67 +7,65 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func pqTest(msgCount, batchSize, qSize int64, profile bool) {
+func pqrwTest(msgCount, batchSize, qSize int64, profile bool) {
 	q := spscq.NewPointerQ(qSize)
 	done := make(chan bool)
 	if profile {
-		f, err := os.Create("prof_pq")
+		f, err := os.Create("prof_pqrw")
 		if err != nil {
 			panic(err.Error())
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	go pqDequeue(msgCount, q, batchSize, done)
-	go pqEnqueue(msgCount, q, batchSize, done)
+	go pqrwDequeue(msgCount, q, batchSize, done)
+	go pqrwEnqueue(msgCount, q, batchSize, done)
 	<-done
 	<-done
 }
 
-func pqEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+func pqrwEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	t := int64(1)
-	var buffer []unsafe.Pointer
+	buffer := make([]unsafe.Pointer, batchSize)
 	for t < msgCount {
-		size := fmath.Min(batchSize, msgCount-t)
-		buffer = q.AcquireWrite(size)
-		for buffer == nil {
-			buffer = q.AcquireWrite(size)
+		if batchSize > msgCount-t {
+			buffer = buffer[:msgCount-t]
 		}
 		for i := range buffer {
 			t++
 			buffer[i] = unsafe.Pointer(uintptr(uint(t)))
 		}
-		q.ReleaseWrite()
+		for w := false; w == false; w = q.Write(buffer) {
+		}
 	}
 	done <- true
 }
 
-func pqDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+func pqrwDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
 	checksum := int64(0)
 	t := int64(1)
-	var buffer []unsafe.Pointer
+	buffer := make([]unsafe.Pointer, batchSize)
 	for t < msgCount {
-		buffer = q.AcquireRead(batchSize)
-		for buffer == nil {
-			buffer = q.AcquireRead(batchSize)
+		if batchSize > msgCount-t {
+			buffer = buffer[:msgCount-t]
+		}
+		for r := false; r == false; r = q.Read(buffer) {
 		}
 		for i := range buffer {
 			t++
 			sum += int64(uintptr(buffer[i]))
 			checksum += t
 		}
-		q.ReleaseRead()
 	}
 	nanos := time.Now().UnixNano() - start
-	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pq")
+	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pqrw")
 	expect(sum, checksum)
 	done <- true
 }

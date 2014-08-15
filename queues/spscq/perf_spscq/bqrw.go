@@ -9,24 +9,24 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func bqsTest(msgCount, msgSize, qSize int64, profile bool) {
+func bqrwTest(msgCount, msgSize, qSize int64, profile bool) {
 	q := spscq.NewByteQ(qSize)
 	done := make(chan bool)
 	if profile {
-		f, err := os.Create("prof_bqs")
+		f, err := os.Create("prof_bqrw")
 		if err != nil {
 			panic(err.Error())
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	go bqsDequeue(msgCount, msgSize, q, done)
-	go bqsEnqueue(msgCount, msgSize, q, done)
+	go bqrwDequeue(msgCount, msgSize, q, done)
+	go bqrwEnqueue(msgCount, msgSize, q, done)
 	<-done
 	<-done
 }
 
-func bqsEnqueue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
+func bqrwEnqueue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 	runtime.LockOSThread()
 	buffer := make([]byte, msgSize)
 	for i := int64(1); i <= msgCount; i++ {
@@ -37,7 +37,7 @@ func bqsEnqueue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 	done <- true
 }
 
-func bqsDequeue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
+func bqrwDequeue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
@@ -50,7 +50,7 @@ func bqsDequeue(msgCount, msgSize int64, q *spscq.ByteQ, done chan bool) {
 		checksum += int64(byte(i))
 	}
 	nanos := time.Now().UnixNano() - start
-	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "bqs")
+	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "bqrw")
 	expect(sum, checksum)
 	done <- true
 }

@@ -11,24 +11,24 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func pqlTest(msgCount, batchSize, qSize int64, profile bool) {
+func pqarTest(msgCount, batchSize, qSize int64, profile bool) {
 	q := spscq.NewPointerQ(qSize)
 	done := make(chan bool)
 	if profile {
-		f, err := os.Create("prof_pql")
+		f, err := os.Create("prof_pqar")
 		if err != nil {
 			panic(err.Error())
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	go pqlDequeue(msgCount, q, batchSize, done)
-	go pqlEnqueue(msgCount, q, batchSize, done)
+	go pqarDequeue(msgCount, q, batchSize, done)
+	go pqarEnqueue(msgCount, q, batchSize, done)
 	<-done
 	<-done
 }
 
-func pqlEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+func pqarEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	t := int64(1)
 	var buffer []unsafe.Pointer
@@ -42,12 +42,12 @@ func pqlEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bo
 			t++
 			buffer[i] = unsafe.Pointer(uintptr(uint(t)))
 		}
-		q.ReleaseWriteLazy()
+		q.ReleaseWrite()
 	}
 	done <- true
 }
 
-func pqlDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+func pqarDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
@@ -64,10 +64,10 @@ func pqlDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bo
 			sum += int64(uintptr(buffer[i]))
 			checksum += t
 		}
-		q.ReleaseReadLazy()
+		q.ReleaseRead()
 	}
 	nanos := time.Now().UnixNano() - start
-	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pql")
+	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pqar")
 	expect(sum, checksum)
 	done <- true
 }

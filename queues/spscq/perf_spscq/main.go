@@ -11,24 +11,24 @@ import (
 var (
 	all = flag.Bool("all", false, "Runs all queue tests")
 	// ByteQ
-	byteq      = flag.Bool("bq", false, "Runs ByteQ")
-	byteqSlice = flag.Bool("bqs", false, "Runs ByteQ using whole buffer copying")
-	byteqLazy  = flag.Bool("bql", false, "Runs ByteQ with lazy writes")
-	bytesSize  = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ")
+	bqrw      = flag.Bool("bqrw", false, "Runs ByteQ using Read/Write methods")
+	bqar      = flag.Bool("bqar", false, "Runs ByteQ using Acquire/Release methods")
+	bqarl     = flag.Bool("bqarl", false, "Runs ByteQ with lazy Acquire/Release methods")
+	bytesSize = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ tests")
 	// ByteChunkQ
-	bytechunkq     = flag.Bool("bcq", false, "Runs ByteChunkQ")
-	bytechunkqLazy = flag.Bool("bcql", false, "Runs ByteChunkQ with lazy writes")
-	chunkSize      = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ")
+	bcqar     = flag.Bool("bcqar", false, "Runs ByteChunkQ using Acquire/Release methods")
+	bcqarl    = flag.Bool("bcqarl", false, "Runs ByteChunkQ with lazy Acquire/Release methods")
+	chunkSize = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ tests")
 	// PointerQ
-	pointerq       = flag.Bool("pq", false, "Runs PointerQ")
-	pointerqSingle = flag.Bool("pqsingle", false, "Runs PointerQ reading and writing a pointer at a time")
-	pointerqSingleLazy = flag.Bool("pqsinglel", false, "Runs PointerQ lazily reading and writing a pointer at a time")
-	pointerqSlice  = flag.Bool("pqs", false, "Runs PointerQ using whole buffer copying")
-	pointerqLazy   = flag.Bool("pql", false, "Runs PointerQ with lazy writes")
-	batchSize      = flag.Int64("batchSize", 64, "The size of the read/write batches used by PointerQ")
+	pqrw      = flag.Bool("pqrw", false, "Runs PointerQ using Read/Write methods")
+	pqar      = flag.Bool("pqar", false, "Runs PointerQ using Acquire/Release methods")
+	pqarl     = flag.Bool("pqarl", false, "Runs PointerQ with lazy Acquire/Release methods")
+	pqs       = flag.Bool("pqs", false, "Runs PointerQ reading and writing a pointer at a time")
+	pqsl      = flag.Bool("pqsl", false, "Runs PointerQ lazily reading and writing a pointer at a time")
+	batchSize = flag.Int64("batchSize", 64, "The size of the read/write batches used by PointerQ")
 	// Addtional flags
 	millionMsgs = flag.Int64("mm", 10, "The number of messages (in millions) to send")
-	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue")
+	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue's ring-buffer")
 	profile     = flag.Bool("profile", false, "Activates the Go profiler, outputting into a prof_* file.")
 )
 
@@ -36,45 +36,45 @@ func main() {
 	runtime.GOMAXPROCS(4)
 	flag.Parse()
 	var msgCount int64 = (*millionMsgs) * 1000 * 1000
-	if *byteq || *all {
+	if *bqrw || *all {
 		runtime.GC()
-		bqTest(msgCount, *bytesSize, *qSize, *profile)
+		bqrwTest(msgCount, *bytesSize, *qSize, *profile)
 	}
-	if *byteqSlice || *all {
+	if *bqar || *all {
 		runtime.GC()
-		bqsTest(msgCount, *bytesSize, *qSize, *profile)
+		bqarTest(msgCount, *bytesSize, *qSize, *profile)
 	}
-	if *byteqLazy || *all {
+	if *bqarl || *all {
 		runtime.GC()
-		bqlTest(msgCount, *bytesSize, *qSize, *profile)
+		bqarlTest(msgCount, *bytesSize, *qSize, *profile)
 	}
-	if *bytechunkq || *all {
+	if *bcqar || *all {
 		runtime.GC()
-		bcqTest(msgCount, *chunkSize, *qSize, *profile)
+		bcqarTest(msgCount, *chunkSize, *qSize, *profile)
 	}
-	if *bytechunkqLazy || *all {
+	if *bcqarl || *all {
 		runtime.GC()
-		bcqlTest(msgCount, *chunkSize, *qSize, *profile)
+		bcqarlTest(msgCount, *chunkSize, *qSize, *profile)
 	}
-	if *pointerq || *all {
+	if *pqrw || *all {
 		runtime.GC()
-		pqTest(msgCount, *batchSize, *qSize, *profile)
+		pqrwTest(msgCount, *batchSize, *qSize, *profile)
 	}
-	if *pointerqSingle || *all {
+	if *pqar || *all {
 		runtime.GC()
-		pqsingleTest(msgCount, *qSize, *profile)
+		pqarTest(msgCount, *batchSize, *qSize, *profile)
 	}
-	if *pointerqSingleLazy || *all {
+	if *pqarl || *all {
 		runtime.GC()
-		pqsinglelTest(msgCount, *qSize, *profile)
+		pqarlTest(msgCount, *batchSize, *qSize, *profile)
 	}
-	if *pointerqSlice || *all {
+	if *pqs || *all {
 		runtime.GC()
-		pqsTest(msgCount, *batchSize, *qSize, *profile)
+		pqsTest(msgCount, *qSize, *profile)
 	}
-	if *pointerqLazy || *all {
+	if *pqsl || *all {
 		runtime.GC()
-		pqlTest(msgCount, *batchSize, *qSize, *profile)
+		pqslTest(msgCount, *qSize, *profile)
 	}
 }
 
