@@ -1,7 +1,7 @@
 package fmath
 
 func PowerOfTwo(val int64) bool {
-	return val >= 0 && val&(val-1) == 0
+	return val > 0 && val&(val-1) == 0
 }
 
 // NB: Only valid if math.MinInt64 <= x-y <= math.MaxInt64
