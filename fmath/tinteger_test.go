@@ -86,3 +86,64 @@ func simplePowerOfTwo(i int64) bool {
 	}
 	return false
 }
+
+func TestCombineInt32(t *testing.T) {
+	r := rand.New(rand.NewSource(1))
+	for i := 0; i < 10*1000; i++ {
+		high := r.Int31()
+		low := r.Int31()
+		whole := CombineInt32(high, low)
+		if high != HighInt32(whole) {
+			t.Errorf("Expecting '%d' found '%d'", high, HighInt32(whole))
+		}
+		if low != LowInt32(whole) {
+			t.Errorf("Expecting '%d' found '%d'", low, LowInt32(whole))
+		}
+	}
+}
+
+// Test that when the most significant bits are set in the trade/rId the guid functions still work
+func TestGuidFunsWithNegativeInt32(t *testing.T) {
+	r := rand.New(rand.NewSource(1))
+	for i := 0; i < 10*1000; i++ {
+		high := -r.Int31()
+		low := -r.Int31()
+		whole := CombineInt32(high, low)
+		if high != HighInt32(whole) {
+			t.Errorf("Expecting '%d' found '%d'", high, HighInt32(whole))
+		}
+		if low != LowInt32(whole) {
+			t.Errorf("Expecting '%d' found '%d'", low, LowInt32(whole))
+		}
+	}
+}
+
+func TestCombineUint32(t *testing.T) {
+	r := rand.New(rand.NewSource(1))
+	for i := 0; i < 10*1000; i++ {
+		high := r.Uint32()
+		low := r.Uint32()
+		whole := CombineInt32(int32(high), int32(low))
+		if high != uint32(HighInt32(whole)) {
+			t.Errorf("Expecting '%d' found '%d'", high, uint32(HighInt32(whole)))
+		}
+		if low != uint32(LowInt32(whole)) {
+			t.Errorf("Expecting '%d' found '%d'", low, uint32(LowInt32(whole)))
+		}
+	}
+}
+
+func TestGuidFunsWithLargeUint32(t *testing.T) {
+	r := rand.New(rand.NewSource(1))
+	for i := 0; i < 10*1000; i++ {
+		high := uint32(-r.Int31())
+		low := uint32(-r.Int31())
+		whole := CombineInt32(int32(high), int32(low))
+		if high != uint32(HighInt32(whole)) {
+			t.Errorf("Expecting '%d' found '%d'", high, HighInt32(whole))
+		}
+		if low != uint32(LowInt32(whole)) {
+			t.Errorf("Expecting '%d' found '%d'", low, LowInt32(whole))
+		}
+	}
+}
