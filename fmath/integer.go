@@ -23,14 +23,14 @@ func Max(x, y int64) int64 {
 // high occupies bits 32-63
 // low occupies bits 0-31
 func CombineInt32(high, low int32) int64 {
-	high64 := uint64(uint32(high)) << 32
-	low64 := uint64(uint32(low))
-	return int64(high64 | low64)
+	high64 := int64(uint32(high)) << 32
+	low64 := int64(uint32(low))
+	return high64 | low64
 }
 
 // Returns the highest 32 bits of an int64
 func HighInt32(whole int64) int32 {
-	return int32(uint64(whole) >> 32)
+	return int32(whole >> 32)
 }
 
 // Returns the lowest 32 bits of an int64
