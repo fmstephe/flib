@@ -18,29 +18,7 @@ func init() {
 	}
 }
 
-func TestMin(t *testing.T) {
-	rand.Seed(1)
-	for i := 0; i < 1000*1000; i++ {
-		a := rand.Int63n(1000 * 1000 * 1000)
-		b := rand.Int63n(1000 * 1000 * 1000)
-		m := Min(a, b)
-		om := simpleMin(a, b)
-		if m != om {
-			as := fstrconv.ItoaComma(a)
-			bs := fstrconv.ItoaComma(b)
-			ms := fstrconv.ItoaComma(m)
-			t.Errorf("Problem with min of %s, %s - min returned %s", as, bs, ms)
-		}
-	}
-}
-
-func simpleMin(val1, val2 int64) int64 {
-	if val1 < val2 {
-		return val1
-	}
-	return val2
-}
-
+// Test fmath.PowerOfTwo(int64) bool
 func TestPowerOfTwo(t *testing.T) {
 	// Test all actual powers of two
 	for _, i := range allPowersOfTwo {
@@ -87,6 +65,34 @@ func simplePowerOfTwo(i int64) bool {
 	return false
 }
 
+// Test fmath.Min(int64,int64) int64
+func TestMin(t *testing.T) {
+	rand.Seed(1)
+	for i := 0; i < 1000*1000; i++ {
+		a := rand.Int63n(1000 * 1000 * 1000)
+		b := rand.Int63n(1000 * 1000 * 1000)
+		m := Min(a, b)
+		om := simpleMin(a, b)
+		if m != om {
+			as := fstrconv.ItoaComma(a)
+			bs := fstrconv.ItoaComma(b)
+			ms := fstrconv.ItoaComma(m)
+			t.Errorf("Problem with min of %s, %s - min returned %s", as, bs, ms)
+		}
+	}
+}
+
+func simpleMin(val1, val2 int64) int64 {
+	if val1 < val2 {
+		return val1
+	}
+	return val2
+}
+
+// Test with random positive int32
+// CombineInt32(int32,int32) int64
+// HighInt32(int64) int32
+// LowInt32(int64) int32
 func TestCombineInt32(t *testing.T) {
 	r := rand.New(rand.NewSource(1))
 	for i := 0; i < 10*1000; i++ {
@@ -102,7 +108,10 @@ func TestCombineInt32(t *testing.T) {
 	}
 }
 
-// Test that when the most significant bits are set in the trade/rId the guid functions still work
+// Test with random negative int32
+// CombineInt32(int32,int32) int64
+// HighInt32(int64) int32
+// LowInt32(int64) int32
 func TestGuidFunsWithNegativeInt32(t *testing.T) {
 	r := rand.New(rand.NewSource(1))
 	for i := 0; i < 10*1000; i++ {
@@ -118,6 +127,10 @@ func TestGuidFunsWithNegativeInt32(t *testing.T) {
 	}
 }
 
+// Test with random uint32, using int32 casts
+// CombineInt32(int32,int32) int64
+// HighInt32(int64) int32
+// LowInt32(int64) int32
 func TestCombineUint32(t *testing.T) {
 	r := rand.New(rand.NewSource(1))
 	for i := 0; i < 10*1000; i++ {
@@ -133,6 +146,10 @@ func TestCombineUint32(t *testing.T) {
 	}
 }
 
+// Test with random uint32 most significant bit set, using int32 casts
+// CombineInt32(int32,int32) int64
+// HighInt32(int64) int32
+// LowInt32(int64) int32
 func TestGuidFunsWithLargeUint32(t *testing.T) {
 	r := rand.New(rand.NewSource(1))
 	for i := 0; i < 10*1000; i++ {
