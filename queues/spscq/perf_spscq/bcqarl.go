@@ -10,7 +10,7 @@ import (
 )
 
 func bcqarlTest(msgCount, msgSize, qSize int64, profile bool) {
-	q := spscq.NewByteChunkQ(qSize, msgSize)
+	q, _ := spscq.NewByteChunkQ(qSize, msgSize)
 	done := make(chan bool)
 	if profile {
 		f, err := os.Create("prof_bcqarl")

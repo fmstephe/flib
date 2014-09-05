@@ -1,6 +1,7 @@
 package spscq
 
 import (
+	"errors"
 	"fmt"
 	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/fatomic"
@@ -25,12 +26,12 @@ type commonQ struct {
 	writeCache  padded.Int64
 }
 
-func newCommonQ(size int64) commonQ {
+func newCommonQ(size int64) (commonQ, error) {
+	var cq commonQ
 	if !fmath.PowerOfTwo(size) {
-		panic(fmt.Sprintf("Size (%d) must be a power of two", size))
+		return cq, errors.New(fmt.Sprintf("Size (%d) must be a power of two", size))
 	}
-	cq := commonQ{size: size, mask: size - 1}
-	return cq
+	return commonQ{size: size, mask: size - 1}, nil
 }
 
 func (q *commonQ) acquireWrite(bufferSize int64) (from int64, to int64) {

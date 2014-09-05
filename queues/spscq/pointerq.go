@@ -27,7 +27,7 @@ type PointerQueue interface {
 	ReleaseWriteLazy()
 }
 
-func NewPointerQueue(size int64) PointerQueue {
+func NewPointerQueue(size int64) (PointerQueue, error) {
 	return NewPointerQ(size)
 }
 
@@ -39,10 +39,13 @@ type PointerQ struct {
 	_postbuffer padded.CacheBuffer
 }
 
-func NewPointerQ(size int64) *PointerQ {
+func NewPointerQ(size int64) (*PointerQ, error) {
+	cq, err := newCommonQ(size)
+	if err != nil {
+		return nil, err
+	}
 	ringBuffer := padded.PointerSlice(int(size))
-	q := &PointerQ{ringBuffer: ringBuffer, commonQ: newCommonQ(size)}
-	return q
+	return &PointerQ{ringBuffer: ringBuffer, commonQ: cq}, nil
 }
 
 func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {

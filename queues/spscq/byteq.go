@@ -19,7 +19,7 @@ type ByteQueue interface {
 	ReleaseWriteLazy()
 }
 
-func NewByteQueue(size int64) ByteQueue {
+func NewByteQueue(size int64) (ByteQueue, error) {
 	return NewByteQ(size)
 }
 
@@ -31,10 +31,13 @@ type ByteQ struct {
 	_postbuffer padded.CacheBuffer
 }
 
-func NewByteQ(size int64) *ByteQ {
+func NewByteQ(size int64) (*ByteQ, error) {
 	ringBuffer := padded.ByteSlice(int(size))
-	q := &ByteQ{ringBuffer: ringBuffer, commonQ: newCommonQ(size)}
-	return q
+	cq, err := newCommonQ(size)
+	if err != nil {
+		return nil, err
+	}
+	return &ByteQ{ringBuffer: ringBuffer, commonQ: cq}, nil
 }
 
 func (q *ByteQ) AcquireWrite(bufferSize int64) []byte {

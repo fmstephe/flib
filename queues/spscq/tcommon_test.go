@@ -25,12 +25,10 @@ func TestNewCommonQNotPowerOf2(t *testing.T) {
 }
 
 func makeBadQ(size int64, t *testing.T) {
-	defer func(s int64) {
-		if err := recover(); err == nil {
-			t.Errorf("No error detected for size %d", s)
-		}
-	}(size)
-	newCommonQ(size)
+	_, err := newCommonQ(size)
+	if err == nil {
+		t.Errorf("No error detected for size %d", size)
+	}
 }
 
 // commonQ.AcquireWrite(...)/commonQ.ReleaseWrite() advances write field
@@ -38,7 +36,7 @@ func TestAcquireReleaseWriteAdvancesWriteField(t *testing.T) {
 	rand.Seed(1)
 	for size := int64(1); size <= maxSize; size *= 2 {
 		rem := size
-		cq := newCommonQ(size)
+		cq, _ := newCommonQ(size)
 		for rem > 0 {
 			bufferSize := rand.Int63n(rem) + 1
 			cq.acquireWrite(bufferSize)
@@ -56,7 +54,7 @@ func TestAcquireReleaseReadAdvancesReadField(t *testing.T) {
 	rand.Seed(1)
 	for size := int64(1); size <= maxSize; size *= 2 {
 		rem := size
-		cq := newCommonQ(size)
+		cq, _ := newCommonQ(size)
 		cq.acquireWrite(size)
 		cq.ReleaseWrite()
 		for rem > 0 {
@@ -77,7 +75,7 @@ func TestAcquireWriteDoesNotWrapPastRead(t *testing.T) {
 	for size := int64(1); size <= maxSize; size *= 2 {
 		writeRand := (size / 64) + 1
 		readRand := (size / 128) + 1
-		cq := newCommonQ(size)
+		cq, _ := newCommonQ(size)
 		for i := 0; i < 10*1000; i++ {
 			writeSize := rand.Int63n(writeRand) + 2
 			readSize := rand.Int63n(readRand) + 1
@@ -98,7 +96,7 @@ func TestAcquireReadDoesNotOvertakeWrite(t *testing.T) {
 	for size := int64(1); size <= maxSize; size *= 2 {
 		writeRand := (size / 128) + 1
 		readRand := (size / 64) + 1
-		cq := newCommonQ(size)
+		cq, _ := newCommonQ(size)
 		for i := 0; i < 10*1000; i++ {
 			writeSize := rand.Int63n(writeRand) + 2
 			readSize := rand.Int63n(readRand) + 1

@@ -10,7 +10,7 @@ import (
 )
 
 func bqarlTest(msgCount, msgSize, qSize int64, profile bool) {
-	q := spscq.NewByteQ(qSize)
+	q, _ := spscq.NewByteQ(qSize)
 	done := make(chan bool)
 	if profile {
 		f, err := os.Create("prof_bqarl")

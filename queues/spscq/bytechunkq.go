@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"errors"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 )
@@ -19,7 +20,7 @@ type ByteChunkQueue interface {
 	ReleaseWriteLazy()
 }
 
-func NewByteChunkQueue(size, chunk int64) ByteChunkQueue {
+func NewByteChunkQueue(size, chunk int64) (ByteChunkQueue, error) {
 	return NewByteChunkQ(size, chunk)
 }
 
@@ -32,13 +33,16 @@ type ByteChunkQ struct {
 	_postbuffer padded.CacheBuffer
 }
 
-func NewByteChunkQ(size, chunk int64) *ByteChunkQ {
+func NewByteChunkQ(size, chunk int64) (*ByteChunkQ, error) {
 	if size%chunk != 0 {
-		panic(fmt.Sprintf("Size must be neatly divisible by chunk, (size) %d rem (chunk) %d = %d", size, chunk, size%chunk))
+		return nil, errors.New(fmt.Sprintf("Size must divide by chunk, (size) %d rem (chunk) %d = %d", size, chunk, size%chunk))
 	}
 	ringBuffer := padded.ByteSlice(int(size))
-	q := &ByteChunkQ{ringBuffer: ringBuffer, commonQ: newCommonQ(size), chunk: chunk}
-	return q
+	cq, err := newCommonQ(size)
+	if err != nil {
+		return nil, err // TODO is that the best error to return?
+	}
+	return &ByteChunkQ{ringBuffer: ringBuffer, commonQ: cq, chunk: chunk}, nil
 }
 
 func (q *ByteChunkQ) AcquireWrite() []byte {

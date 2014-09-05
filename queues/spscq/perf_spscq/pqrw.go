@@ -11,7 +11,7 @@ import (
 )
 
 func pqrwTest(msgCount, batchSize, qSize int64, profile bool) {
-	q := spscq.NewPointerQ(qSize)
+	q, _ := spscq.NewPointerQ(qSize)
 	done := make(chan bool)
 	if profile {
 		f, err := os.Create("prof_pqrw")
