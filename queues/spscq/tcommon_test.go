@@ -6,12 +6,13 @@ import (
 	"testing"
 )
 
-const maxSize = 1 << 42 // Represents a very big ring buffer
-
 // Test that we can call newCommonQ(...) for every power of 2 in an int64
 func TestNewCommonQPowerOf2(t *testing.T) {
-	for size := int64(1); size > 0; size *= 2 {
-		newCommonQ(size)
+	for size := int64(1); size <= maxSize; size *= 2 {
+		_, err := newCommonQ(size)
+		if err != nil {
+			t.Errorf("Error found for size %d", size)
+		}
 	}
 }
 

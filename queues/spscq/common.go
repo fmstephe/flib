@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 )
 
+const maxSize = 1 << 41
+
 type commonQ struct {
 	// Readonly Fields
 	size       int64
@@ -30,6 +32,9 @@ func newCommonQ(size int64) (commonQ, error) {
 	var cq commonQ
 	if !fmath.PowerOfTwo(size) {
 		return cq, errors.New(fmt.Sprintf("Size (%d) must be a power of two", size))
+	}
+	if size > maxSize {
+		return cq, errors.New(fmt.Sprintf("Size (%d) must be less than %d", size, maxSize))
 	}
 	return commonQ{size: size, mask: size - 1}, nil
 }
