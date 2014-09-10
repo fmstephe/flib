@@ -8,15 +8,17 @@ func PowerOfTwo(val int64) bool {
 // Returns x if x < y, otherwise returns y
 //
 // NB: Only valid if math.MinInt64 <= x-y <= math.MaxInt64
-// This is valid for these queues because x and y will always be positive
+// In particular, always valid if both arguments are positive
 func Min(x, y int64) int64 {
 	return y + ((x - y) & ((x - y) >> 63))
 }
 
 // Returns x if x > y, otherwise returns y
-//TODO complete me
+//
+// NB: Only valid if math.MinInt64 <= x-y <= math.MaxInt64
+// In particular, always valid if both arguments are positive
 func Max(x, y int64) int64 {
-	panic("Not yet implemented")
+	return x ^ ((x ^ y) & ((x - y) >> 63))
 }
 
 // Combines two int32 values into a single int64
