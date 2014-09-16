@@ -129,10 +129,25 @@ func (q *commonQ) readWrappingBuffer(bufferSize int64) (from int64, to int64, wr
 	return from, to, wrap
 }
 
-func (c *commonQ) FailedWrites() int64 {
-	return atomic.LoadInt64(&c.failedWrites.Value)
+func (q *commonQ) FailedWrites() int64 {
+	return atomic.LoadInt64(&q.failedWrites.Value)
 }
 
-func (c *commonQ) FailedReads() int64 {
-	return atomic.LoadInt64(&c.failedReads.Value)
+func (q *commonQ) FailedReads() int64 {
+	return atomic.LoadInt64(&q.failedReads.Value)
+}
+
+func (q *commonQ) String() string {
+	msg := "{Size %d, mask %d, write %d, writeSize %d, failedWrites %d, readCache %d, read %d, readSize %d, failedReads %d, writeCache %d}"
+	size := q.size
+	mask := q.mask
+	write := q.write.Value
+	writeSize := q.writeSize.Value
+	failedWrites := q.failedWrites.Value
+	readCache := q.readCache.Value
+	read := q.read.Value
+	readSize := q.readSize.Value
+	failedReads := q.failedReads.Value
+	writeCache := q.writeCache.Value
+	return fmt.Sprintf(msg, size, mask, write, writeSize, failedWrites, readCache, read, readSize, failedReads, writeCache)
 }
