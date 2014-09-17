@@ -128,43 +128,65 @@ func testReleaseRead(cq, snap commonQ) error {
 	return nil
 }
 
-func TestEvenReadWrites(t *testing.T) {
+func TestEvenWriteRead(t *testing.T) {
 	rand.Seed(1)
-	for i := uint64(0); i <= 41; i++ {
+	for i := uint(0); i <= 41; i++ {
 		size := int64(1 << i)
-		cq, err := newCommonQ(size)
-		if err != nil {
-			t.Error(err.Error())
-			continue
-		}
 		bufferSize := fmath.Max(size/128, 1)
-		for j := int64(0); j < 1024; j++ {
-			// write
-			snap := cq
-			wfrom, wto := cq.acquireWrite(bufferSize)
-			if err := testAcquireWrite(bufferSize, wfrom, wto, cq, snap); err != nil {
-				t.Error(err.Error())
-				return
-			}
-			snap = cq
-			cq.ReleaseWrite()
-			if err := testReleaseWrite(cq, snap); err != nil {
-				t.Error(err.Error())
-				return
-			}
-			// read
-			snap = cq
-			rfrom, rto := cq.acquireRead(bufferSize)
-			if err := testAcquireRead(bufferSize, rfrom, rto, cq, snap); err != nil {
-				t.Error(err.Error())
-				return
-			}
-			snap = cq
-			cq.ReleaseRead()
-			if err := testReleaseRead(cq, snap); err != nil {
-				t.Error(err.Error())
-				return
-			}
+		testSymmetricReadWrites(t, size, bufferSize, bufferSize, 1024)
+	}
+}
+
+func TestLightWriteHeavyRead(t *testing.T) {
+	rand.Seed(1)
+	for i := uint(0); i <= 41; i++ {
+		size := int64(1 << i)
+		bufferSize := fmath.Max(size/128, 1)
+		testSymmetricReadWrites(t, size, bufferSize, bufferSize*2, 1024)
+	}
+}
+
+func TestHeavyWriteLightRead(t *testing.T) {
+	rand.Seed(1)
+	for i := uint(0); i <= 41; i++ {
+		size := int64(1 << i)
+		bufferSize := fmath.Max(size/128, 1)
+		testSymmetricReadWrites(t, size, bufferSize*2, bufferSize, 1024)
+	}
+}
+
+func testSymmetricReadWrites(t *testing.T, size int64, writeSize, readSize, iterations int64) {
+	cq, err := newCommonQ(size)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	for j := int64(0); j < iterations; j++ {
+		// write
+		snap := cq
+		wfrom, wto := cq.acquireWrite(writeSize)
+		if err := testAcquireWrite(writeSize, wfrom, wto, cq, snap); err != nil {
+			t.Error(err.Error())
+			return
+		}
+		snap = cq
+		cq.ReleaseWrite()
+		if err := testReleaseWrite(cq, snap); err != nil {
+			t.Error(err.Error())
+			return
+		}
+		// read
+		snap = cq
+		rfrom, rto := cq.acquireRead(readSize)
+		if err := testAcquireRead(readSize, rfrom, rto, cq, snap); err != nil {
+			t.Error(err.Error())
+			return
+		}
+		snap = cq
+		cq.ReleaseRead()
+		if err := testReleaseRead(cq, snap); err != nil {
+			t.Error(err.Error())
+			return
 		}
 	}
 }
