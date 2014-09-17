@@ -11,8 +11,8 @@ func Counter() (count int64)
 // of the CPU it is running on.
 // On AMD64 CPUs we test for the 'Invariant TSC' property using CPUID
 func IsCounterSteady() bool {
-	_, _, ecx, _ := cpuid(0X80000007)
-	return ecx&(1<<8) != 0
+	_, _, _, edx := cpuid(0X80000007)
+	return edx&(1<<8) != 0
 }
 
 // Indicates whether the results returned from a call to Counter()
@@ -21,8 +21,8 @@ func IsCounterSteady() bool {
 // sockets
 // On AMD64 CPUs we test for the 'Invariant TSC' property using CPUID
 func IsCounterSMPMonotonic() bool {
-	_, _, ecx, _ := cpuid(0X80000007)
-	return ecx&(1<<8) != 0
+	_, _, _, edx := cpuid(0X80000007)
+	return edx&(1<<8) != 0
 }
 
 func cpuid(eaxi uint32) (eax, ebx, ecx, edx uint32)
