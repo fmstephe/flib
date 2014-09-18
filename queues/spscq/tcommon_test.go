@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/fmstephe/flib/fmath"
-	"math/rand"
 	"testing"
 )
 
@@ -34,7 +33,43 @@ func makeBadQ(size int64, t *testing.T) {
 	}
 }
 
-func testAcquireWrite(writeBufferSize, from, to int64, cq, snap commonQ) error {
+func copyForRead(cq *commonQ) *commonQ {
+	snap := &commonQ{}
+	// immutable
+	snap.size = cq.size
+	snap.mask = cq.mask
+	// write
+	snap.write.Value = -1
+	snap.writeSize.Value = -1
+	snap.failedWrites.Value = -1
+	snap.readCache.Value = -1
+	// read
+	snap.read.Value = cq.read.Value
+	snap.readSize.Value = cq.readSize.Value
+	snap.failedReads.Value = cq.failedReads.Value
+	snap.writeCache.Value = cq.writeCache.Value
+	return snap
+}
+
+func copyForWrite(cq *commonQ) *commonQ {
+	snap := &commonQ{}
+	// immutable
+	snap.size = cq.size
+	snap.mask = cq.mask
+	// write
+	snap.write.Value = cq.write.Value
+	snap.writeSize.Value = cq.writeSize.Value
+	snap.failedWrites.Value = cq.failedWrites.Value
+	snap.readCache.Value = cq.readCache.Value
+	// read
+	snap.read.Value = -1
+	snap.readSize.Value = -1
+	snap.failedReads.Value = -1
+	snap.writeCache.Value = -1
+	return snap
+}
+
+func testAcquireWrite(writeBufferSize, from, to int64, cq, snap *commonQ) error {
 	actualWriteSize := to - from
 	if actualWriteSize == 0 && cq.failedWrites.Value != snap.failedWrites.Value+1 {
 		msg := "failedWrites not incremented. Expected %d, found %d"
@@ -44,11 +79,11 @@ func testAcquireWrite(writeBufferSize, from, to int64, cq, snap commonQ) error {
 		msg := "Actual write size (%d) larger than requested buffer size (%d)"
 		return errors.New(fmt.Sprintf(msg, actualWriteSize, writeBufferSize))
 	}
-	if (actualWriteSize < writeBufferSize) && (cq.write.Value+actualWriteSize) != (cq.read.Value+cq.size) {
+	if (actualWriteSize < writeBufferSize) && (cq.write.Value+actualWriteSize) != (cq.readCache.Value+cq.size) {
 		msg := "Actual write size (%d) could have been bigger.\nsnap %s\ncq  %s"
 		return errors.New(fmt.Sprintf(msg, actualWriteSize, snap.String(), cq.String()))
 	}
-	if (cq.write.Value + actualWriteSize) > (cq.read.Value + cq.size) {
+	if (cq.write.Value + actualWriteSize) > (cq.readCache.Value + cq.size) {
 		msg := "Actual write size (%d) overwrites unread data.\ncq %s"
 		return errors.New(fmt.Sprintf(msg, actualWriteSize, cq.String()))
 	}
@@ -71,7 +106,7 @@ func testAcquireWrite(writeBufferSize, from, to int64, cq, snap commonQ) error {
 	return nil
 }
 
-func testReleaseWrite(cq, snap commonQ) error {
+func testReleaseWrite(cq, snap *commonQ) error {
 	if cq.writeSize.Value != 0 {
 		return errors.New(fmt.Sprintf("cq.writeSize was not reset to 0, %d found instead", cq.writeSize))
 	}
@@ -81,7 +116,7 @@ func testReleaseWrite(cq, snap commonQ) error {
 	return nil
 }
 
-func testAcquireRead(readBufferSize, from, to int64, cq, snap commonQ) error {
+func testAcquireRead(readBufferSize, from, to int64, cq, snap *commonQ) error {
 	actualReadSize := to - from
 	if actualReadSize == 0 && cq.failedReads.Value != snap.failedReads.Value+1 {
 		msg := "failedReads not incremented. Expected %d, found %d"
@@ -91,11 +126,11 @@ func testAcquireRead(readBufferSize, from, to int64, cq, snap commonQ) error {
 		msg := "Actual read size (%d) larger than requested buffer size (%d)"
 		return errors.New(fmt.Sprintf(msg, actualReadSize, readBufferSize))
 	}
-	if (actualReadSize < readBufferSize) && (cq.read.Value+actualReadSize) != (cq.write.Value) {
+	if (actualReadSize < readBufferSize) && (cq.read.Value+actualReadSize) != (cq.writeCache.Value) {
 		msg := "Actual read size (%d) could have been bigger.\nsnap %s\ncq  %s"
 		return errors.New(fmt.Sprintf(msg, actualReadSize, snap.String(), cq.String()))
 	}
-	if (cq.read.Value + actualReadSize) > cq.write.Value {
+	if (cq.read.Value + actualReadSize) > cq.writeCache.Value {
 		msg := "Actual read size (%d) reads past write position (%d).\ncq %s"
 		return errors.New(fmt.Sprintf(msg, actualReadSize, cq.write.Value, cq.String()))
 	}
@@ -118,7 +153,7 @@ func testAcquireRead(readBufferSize, from, to int64, cq, snap commonQ) error {
 	return nil
 }
 
-func testReleaseRead(cq, snap commonQ) error {
+func testReleaseRead(cq, snap *commonQ) error {
 	if cq.readSize.Value != 0 {
 		return errors.New(fmt.Sprintf("cq.readSize was not reset to 0, %d found instead", cq.readSize))
 	}
@@ -129,64 +164,126 @@ func testReleaseRead(cq, snap commonQ) error {
 }
 
 func TestEvenWriteRead(t *testing.T) {
-	rand.Seed(1)
-	for i := uint(0); i <= 41; i++ {
+	for i := uint(0); i <= 41; i += 4 {
 		size := int64(1 << i)
 		bufferSize := fmath.Max(size/128, 1)
-		testSymmetricReadWrites(t, size, bufferSize, bufferSize, 1024)
+		testSequentialReadWrites(t, size, bufferSize, bufferSize, 512)
 	}
 }
 
 func TestLightWriteHeavyRead(t *testing.T) {
-	rand.Seed(1)
-	for i := uint(0); i <= 41; i++ {
+	for i := uint(0); i <= 41; i += 4 {
 		size := int64(1 << i)
 		bufferSize := fmath.Max(size/128, 1)
-		testSymmetricReadWrites(t, size, bufferSize, bufferSize*2, 1024)
+		testSequentialReadWrites(t, size, bufferSize, bufferSize*2, 512)
 	}
 }
 
 func TestHeavyWriteLightRead(t *testing.T) {
-	rand.Seed(1)
-	for i := uint(0); i <= 41; i++ {
+	for i := uint(0); i <= 41; i += 4 {
 		size := int64(1 << i)
 		bufferSize := fmath.Max(size/128, 1)
-		testSymmetricReadWrites(t, size, bufferSize*2, bufferSize, 1024)
+		testSequentialReadWrites(t, size, bufferSize*2, bufferSize, 512)
 	}
 }
 
-func testSymmetricReadWrites(t *testing.T, size int64, writeSize, readSize, iterations int64) {
-	cq, err := newCommonQ(size)
+func testSequentialReadWrites(t *testing.T, size int64, writeSize, readSize, iterations int64) {
+	cqs, err := newCommonQ(size)
 	if err != nil {
 		t.Error(err.Error())
 		return
 	}
+	cq := &cqs
 	for j := int64(0); j < iterations; j++ {
 		// write
-		snap := cq
+		snap := copyForWrite(cq)
 		wfrom, wto := cq.acquireWrite(writeSize)
 		if err := testAcquireWrite(writeSize, wfrom, wto, cq, snap); err != nil {
 			t.Error(err.Error())
 			return
 		}
-		snap = cq
+		snap = copyForWrite(cq)
 		cq.ReleaseWrite()
 		if err := testReleaseWrite(cq, snap); err != nil {
 			t.Error(err.Error())
 			return
 		}
 		// read
-		snap = cq
+		snap = copyForRead(cq)
 		rfrom, rto := cq.acquireRead(readSize)
 		if err := testAcquireRead(readSize, rfrom, rto, cq, snap); err != nil {
 			t.Error(err.Error())
 			return
 		}
-		snap = cq
+		snap = copyForRead(cq)
 		cq.ReleaseRead()
 		if err := testReleaseRead(cq, snap); err != nil {
 			t.Error(err.Error())
 			return
 		}
+	}
+}
+
+func TestEvenWriteReadConc(t *testing.T) {
+	for i := uint(0); i <= 41; i += 4 {
+		size := int64(1 << i)
+		bufferSize := fmath.Max(size/128, 1)
+		testConcurrentReadWrites(t, size, bufferSize, bufferSize, 512)
+	}
+}
+
+func TestLightWriteHeavyReadConc(t *testing.T) {
+	for i := uint(0); i <= 41; i += 4 {
+		size := int64(1 << i)
+		bufferSize := fmath.Max(size/128, 1)
+		testConcurrentReadWrites(t, size, bufferSize, bufferSize*2, 512)
+	}
+}
+
+func TestHeavyWriteLightReadConc(t *testing.T) {
+	for i := uint(0); i <= 41; i += 4 {
+		size := int64(1 << i)
+		bufferSize := fmath.Max(size/128, 1)
+		testConcurrentReadWrites(t, size, bufferSize*2, bufferSize, 512)
+	}
+}
+
+func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, iterations int64) {
+	cqs, err := newCommonQ(size)
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+	for j := int64(0); j < iterations; j++ {
+		go func(cq *commonQ) {
+			// write
+			snap := copyForWrite(cq)
+			wfrom, wto := cq.acquireWrite(writeSize)
+			if err := testAcquireWrite(writeSize, wfrom, wto, cq, snap); err != nil {
+				t.Error(err.Error())
+				return
+			}
+			snap = copyForWrite(cq)
+			cq.ReleaseWrite()
+			if err := testReleaseWrite(cq, snap); err != nil {
+				t.Error(err.Error())
+				return
+			}
+		}(&cqs)
+		go func(cq *commonQ) {
+			// read
+			snap := copyForRead(cq)
+			rfrom, rto := cq.acquireRead(readSize)
+			if err := testAcquireRead(readSize, rfrom, rto, cq, snap); err != nil {
+				t.Error(err.Error())
+				return
+			}
+			snap = copyForRead(cq)
+			cq.ReleaseRead()
+			if err := testReleaseRead(cq, snap); err != nil {
+				t.Error(err.Error())
+				return
+			}
+		}(&cqs)
 	}
 }
