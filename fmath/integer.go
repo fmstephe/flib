@@ -39,3 +39,10 @@ func HighInt32(whole int64) int32 {
 func LowInt32(whole int64) int32 {
 	return int32(whole)
 }
+
+func Abs(val int64) int64 {
+	if val >= 0 {
+		return val
+	}
+	return -val
+}

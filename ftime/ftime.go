@@ -26,3 +26,10 @@ func IsCounterSMPMonotonic() bool {
 }
 
 func cpuid(eaxi uint32) (eax, ebx, ecx, edx uint32)
+
+// This method will not return until the value returned by Counter()
+// has increased by ticks.
+// This method is useful as an alternative to time.Sleep() when very short
+// pause periods are desired and it is undesirable to have the current
+// thread/goroutine descheduled.
+func Pause(ticks int64)

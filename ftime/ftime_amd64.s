@@ -16,3 +16,18 @@ TEXT ·cpuid(SB),$0-24
         MOVL	CX, ecx+16(FP)
 	MOVL	DX, edx+20(FP)	
         RET
+
+TEXT ·Pause(SB),$0-8
+	MOVQ	ticks+0(FP), BX
+	RDTSC
+        SHLQ    $32, DX
+        ADDQ    DX, AX
+        ADDQ    AX, BX // Target ticks lives in BX
+testTick:
+	PAUSE
+	RDTSC
+        SHLQ    $32, DX
+        ADDQ    DX, AX
+	CMPQ	BX, AX
+	JGT	testTick
+        RET
