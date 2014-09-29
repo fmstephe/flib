@@ -1,3 +1,3 @@
 package padded
 
-const cacheLineBytes = 64
+const CacheLineBytes = 64

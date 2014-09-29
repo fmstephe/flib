@@ -5,11 +5,11 @@ import (
 )
 
 func ByteSlice(size int) []byte {
-	b := make([]byte, cacheLineBytes+size+cacheLineBytes)
-	return b[cacheLineBytes : size+cacheLineBytes]
+	b := make([]byte, CacheLineBytes+size+CacheLineBytes)
+	return b[CacheLineBytes : size+CacheLineBytes]
 }
 
 func PointerSlice(size int) []unsafe.Pointer {
-	b := make([]unsafe.Pointer, cacheLineBytes+size+cacheLineBytes)
-	return b[cacheLineBytes : size+cacheLineBytes]
+	b := make([]unsafe.Pointer, CacheLineBytes+size+CacheLineBytes)
+	return b[CacheLineBytes : size+CacheLineBytes]
 }

@@ -1,5 +1,5 @@
 package padded
 
 type CacheBuffer struct {
-	Bytes [cacheLineBytes * 2]byte
+	Bytes [CacheLineBytes * 2]byte
 }
