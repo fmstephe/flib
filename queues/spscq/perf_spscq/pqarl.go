@@ -11,8 +11,8 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func pqarlTest(msgCount, batchSize, qSize int64, profile bool) {
-	q, _ := spscq.NewPointerQ(qSize)
+func pqarlTest(msgCount, pause, batchSize, qSize int64, profile bool) {
+	q, _ := spscq.NewPointerQ(qSize, pause)
 	done := make(chan bool)
 	if profile {
 		f, err := os.Create("prof_pqarl")

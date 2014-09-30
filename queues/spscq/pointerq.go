@@ -3,7 +3,7 @@ package spscq
 import (
 	"sync/atomic"
 	"unsafe"
-
+	"github.com/fmstephe/flib/ftime"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 )
@@ -27,8 +27,8 @@ type PointerQueue interface {
 	ReleaseWriteLazy()
 }
 
-func NewPointerQueue(size int64) (PointerQueue, error) {
-	return NewPointerQ(size)
+func NewPointerQueue(size, pause int64) (PointerQueue, error) {
+	return NewPointerQ(size, pause)
 }
 
 type PointerQ struct {
@@ -39,8 +39,8 @@ type PointerQ struct {
 	_postbuffer padded.CacheBuffer
 }
 
-func NewPointerQ(size int64) (*PointerQ, error) {
-	cq, err := newCommonQ(size)
+func NewPointerQ(size, pause int64) (*PointerQ, error) {
+	cq, err := newCommonQ(size, pause)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +109,7 @@ func (q *PointerQ) writeSingle(val unsafe.Pointer) bool {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit == q.readCache.Value {
 			q.failedWrites.Value++
+			ftime.Pause(q.pause)
 			return false
 		}
 	}
@@ -138,6 +139,7 @@ func (q *PointerQ) readSingle() unsafe.Pointer {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if read == q.writeCache.Value {
 			q.failedReads.Value++
+			ftime.Pause(q.pause)
 			return nil
 		}
 	}

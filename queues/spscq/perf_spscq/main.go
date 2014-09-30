@@ -29,6 +29,7 @@ var (
 	// Addtional flags
 	millionMsgs = flag.Int64("mm", 10, "The number of messages (in millions) to send")
 	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue's ring-buffer")
+	pause       = flag.Int64("pause", 10*1000, "The size of the pause when a read or write fails")
 	profile     = flag.Bool("profile", false, "Activates the Go profiler, outputting into a prof_* file.")
 )
 
@@ -38,43 +39,43 @@ func main() {
 	var msgCount int64 = (*millionMsgs) * 1000 * 1000
 	if *bqrw || *all {
 		runtime.GC()
-		bqrwTest(msgCount, *bytesSize, *qSize, *profile)
+		bqrwTest(msgCount, *pause, *bytesSize, *qSize, *profile)
 	}
 	if *bqar || *all {
 		runtime.GC()
-		bqarTest(msgCount, *bytesSize, *qSize, *profile)
+		bqarTest(msgCount, *pause, *bytesSize, *qSize, *profile)
 	}
 	if *bqarl || *all {
 		runtime.GC()
-		bqarlTest(msgCount, *bytesSize, *qSize, *profile)
+		bqarlTest(msgCount, *pause, *bytesSize, *qSize, *profile)
 	}
 	if *bcqar || *all {
 		runtime.GC()
-		bcqarTest(msgCount, *chunkSize, *qSize, *profile)
+		bcqarTest(msgCount, *pause, *chunkSize, *qSize, *profile)
 	}
 	if *bcqarl || *all {
 		runtime.GC()
-		bcqarlTest(msgCount, *chunkSize, *qSize, *profile)
+		bcqarlTest(msgCount, *pause, *chunkSize, *qSize, *profile)
 	}
 	if *pqrw || *all {
 		runtime.GC()
-		pqrwTest(msgCount, *batchSize, *qSize, *profile)
+		pqrwTest(msgCount, *pause, *batchSize, *qSize, *profile)
 	}
 	if *pqar || *all {
 		runtime.GC()
-		pqarTest(msgCount, *batchSize, *qSize, *profile)
+		pqarTest(msgCount, *pause, *batchSize, *qSize, *profile)
 	}
 	if *pqarl || *all {
 		runtime.GC()
-		pqarlTest(msgCount, *batchSize, *qSize, *profile)
+		pqarlTest(msgCount, *pause, *batchSize, *qSize, *profile)
 	}
 	if *pqs || *all {
 		runtime.GC()
-		pqsTest(msgCount, *qSize, *profile)
+		pqsTest(msgCount, *pause, *qSize, *profile)
 	}
 	if *pqsl || *all {
 		runtime.GC()
-		pqslTest(msgCount, *qSize, *profile)
+		pqslTest(msgCount, *pause, *qSize, *profile)
 	}
 }
 

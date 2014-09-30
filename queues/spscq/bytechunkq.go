@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"errors"
+	"github.com/fmstephe/flib/ftime"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 )
@@ -20,8 +21,8 @@ type ByteChunkQueue interface {
 	ReleaseWriteLazy()
 }
 
-func NewByteChunkQueue(size, chunk int64) (ByteChunkQueue, error) {
-	return NewByteChunkQ(size, chunk)
+func NewByteChunkQueue(size, pause, chunk int64) (ByteChunkQueue, error) {
+	return NewByteChunkQ(size, pause, chunk)
 }
 
 type ByteChunkQ struct {
@@ -33,12 +34,12 @@ type ByteChunkQ struct {
 	_postbuffer padded.CacheBuffer
 }
 
-func NewByteChunkQ(size, chunk int64) (*ByteChunkQ, error) {
+func NewByteChunkQ(size, pause, chunk int64) (*ByteChunkQ, error) {
 	if size%chunk != 0 {
 		return nil, errors.New(fmt.Sprintf("Size must divide by chunk, (size) %d rem (chunk) %d = %d", size, chunk, size%chunk))
 	}
 	ringBuffer := padded.ByteSlice(int(size))
-	cq, err := newCommonQ(size)
+	cq, err := newCommonQ(size, pause)
 	if err != nil {
 		return nil, err // TODO is that the best error to return?
 	}
@@ -54,6 +55,7 @@ func (q *ByteChunkQ) AcquireWrite() []byte {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit > q.readCache.Value {
 			q.failedWrites.Value++
+			ftime.Pause(q.pause)
 			return nil
 		}
 	}
@@ -78,6 +80,7 @@ func (q *ByteChunkQ) AcquireRead() []byte {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if readTo > q.writeCache.Value {
 			q.failedReads.Value++
+			ftime.Pause(q.pause)
 			return nil
 		}
 	}

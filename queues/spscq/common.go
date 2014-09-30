@@ -6,6 +6,7 @@ import (
 	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
+	"github.com/fmstephe/flib/ftime"
 	"sync/atomic"
 )
 
@@ -15,6 +16,7 @@ type commonQ struct {
 	// Readonly Fields
 	size       int64
 	mask       int64
+	pause      int64
 	_ropadding padded.CacheBuffer
 	// Writer fields
 	write        padded.Int64
@@ -28,7 +30,7 @@ type commonQ struct {
 	writeCache  padded.Int64
 }
 
-func newCommonQ(size int64) (commonQ, error) {
+func newCommonQ(size, pause int64) (commonQ, error) {
 	var cq commonQ
 	if !fmath.PowerOfTwo(size) {
 		return cq, errors.New(fmt.Sprintf("Size (%d) must be a power of two", size))
@@ -36,7 +38,7 @@ func newCommonQ(size int64) (commonQ, error) {
 	if size > maxSize {
 		return cq, errors.New(fmt.Sprintf("Size (%d) must be less than %d", size, maxSize))
 	}
-	return commonQ{size: size, mask: size - 1}, nil
+	return commonQ{size: size, mask: size - 1, pause: pause}, nil
 }
 
 func (q *commonQ) acquireWrite(bufferSize int64) (from int64, to int64) {
@@ -54,6 +56,7 @@ func (q *commonQ) acquireWrite(bufferSize int64) (from int64, to int64) {
 	}
 	if from == to {
 		q.failedWrites.Value++
+		ftime.Pause(q.pause)
 	}
 	q.writeSize.Value = to - from
 	return from, to
@@ -83,6 +86,7 @@ func (q *commonQ) acquireRead(bufferSize int64) (from int64, to int64) {
 	}
 	if from == to {
 		q.failedReads.Value++
+		ftime.Pause(q.pause)
 	}
 	q.readSize.Value = to - from
 	return from, to
@@ -105,6 +109,7 @@ func (q *commonQ) writeWrappingBuffer(bufferSize int64) (from int64, to int64, w
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit > q.readCache.Value {
 			q.failedWrites.Value++
+			ftime.Pause(q.pause)
 			return 0, 0, 0
 		}
 	}
@@ -120,6 +125,7 @@ func (q *commonQ) readWrappingBuffer(bufferSize int64) (from int64, to int64, wr
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if readTo > q.writeCache.Value {
 			q.failedReads.Value++
+			ftime.Pause(q.pause)
 			return 0, 0, 0
 		}
 	}

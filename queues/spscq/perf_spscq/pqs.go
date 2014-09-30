@@ -11,8 +11,8 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func pqsTest(msgCount, qSize int64, profile bool) {
-	q, _ := spscq.NewPointerQ(qSize)
+func pqsTest(msgCount, pause, qSize int64, profile bool) {
+	q, _ := spscq.NewPointerQ(qSize, pause)
 	done := make(chan bool)
 	if profile {
 		f, err := os.Create("prof_pqs")

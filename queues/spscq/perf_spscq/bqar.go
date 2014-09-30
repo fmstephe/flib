@@ -9,8 +9,8 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func bqarTest(msgCount, msgSize, qSize int64, profile bool) {
-	q, _ := spscq.NewByteQ(qSize)
+func bqarTest(msgCount, pause, msgSize, qSize int64, profile bool) {
+	q, _ := spscq.NewByteQ(qSize, pause)
 	done := make(chan bool)
 	if profile {
 		f, err := os.Create("prof_bqar")

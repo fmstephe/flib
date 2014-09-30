@@ -10,8 +10,8 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func pqrwTest(msgCount, batchSize, qSize int64, profile bool) {
-	q, _ := spscq.NewPointerQ(qSize)
+func pqrwTest(msgCount, pause, batchSize, qSize int64, profile bool) {
+	q, _ := spscq.NewPointerQ(qSize, pause)
 	done := make(chan bool)
 	if profile {
 		f, err := os.Create("prof_pqrw")

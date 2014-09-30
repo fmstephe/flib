@@ -9,8 +9,8 @@ import (
 	"github.com/fmstephe/flib/queues/spscq"
 )
 
-func bcqarTest(msgCount, msgSize, qSize int64, profile bool) {
-	q, _ := spscq.NewByteChunkQ(qSize, msgSize)
+func bcqarTest(msgCount, pause, msgSize, qSize int64, profile bool) {
+	q, _ := spscq.NewByteChunkQ(qSize, pause, msgSize)
 	done := make(chan bool)
 	if profile {
 		f, err := os.Create("prof_bcqar")
