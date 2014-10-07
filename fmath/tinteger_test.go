@@ -65,6 +65,61 @@ func simplePowerOfTwo(i int64) bool {
 	return false
 }
 
+// Test that for all positive powers of two n, NxtPowerOfTwo(n) returns n
+func TestNxtPowerOfTwoPowersOfTwo(t *testing.T) {
+	for n := int64(1); n > 0; n *= 2 {
+		nxt := NxtPowerOfTwo(n)
+		if nxt != n {
+			t.Errorf("For input %d expected NxtPowerOfTwo = %d, found %d", n, n, nxt)
+		}
+	}
+}
+
+// Test that for all positive powers of two n, NxtPowerOfTwo(-n) returns 1
+func TestNxtPowerOfTwoPowersOfTwoNegative(t *testing.T) {
+	for n := int64(1); n > 0; n *= 2 {
+		nxt := NxtPowerOfTwo(n)
+		if nxt != n {
+			t.Errorf("For input %d expected NxtPowerOfTwo = %d, found %d", n, n, nxt)
+		}
+	}
+}
+
+// Test that for all positive powers of two n,
+// if we generate a random number, m, smaller than n
+// but larger than the largest power of two less than n
+// then NxtPowerOfTwo(m) returns m
+//
+// A better way to describe this could be that if you take
+// a random number, m, sandwiched between two powers of two
+// NxtPowerOfTwo(m) returns the larger of the two powers of two
+func TestNxtPowerOfTwoRandom(t *testing.T) {
+	rand.Seed(1)
+	for i := 0; i < 1000; i++ {
+		for n := int64(2); n > 0; n *= 2 {
+			low := n >> 1
+			m := rand.Int63n(n-low) + low + 1
+			nxt := NxtPowerOfTwo(m)
+			if nxt != m {
+				t.Errorf("For input %d expected NxtPowerOfTwo = %d, found %d", m, n, nxt)
+			}
+		}
+	}
+}
+
+// Test that for any random negative number n
+// NxtPowerOfTwo(n) returns 1
+func TestNxtPowerOfTwoRandomNegative(t *testing.T) {
+	rand.Seed(1)
+	for i := 0; i < 10*1000; i++ {
+		n := -rand.Int63()
+		nxt := NxtPowerOfTwo(n)
+		if nxt != 1 {
+			t.Errorf("For input %d expected NxtPowerOfTwo = 1, found %d", n, nxt)
+		}
+	}
+}
+
 // Test fmath.Min(int64,int64) int64
 // TODO test for large positive values and moderate negative values
 func TestMin(t *testing.T) {

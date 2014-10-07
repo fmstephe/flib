@@ -5,6 +5,23 @@ func PowerOfTwo(val int64) bool {
 	return val > 0 && val&(val-1) == 0
 }
 
+// Returns the smallest power of two <= val
+func NxtPowerOfTwo(val int64) int64 {
+	if val <= 1 {
+		return 1
+	}
+	if PowerOfTwo(val) {
+		return val
+	}
+	for i := uint(1); val != 0; i++ {
+		if val == 1 {
+			return 1 << i
+		}
+		val = val >> 1
+	}
+	panic("Unreachable")
+}
+
 // Returns x if x < y, otherwise returns y
 //
 // NB: Only valid if math.MinInt64 <= x-y <= math.MaxInt64
