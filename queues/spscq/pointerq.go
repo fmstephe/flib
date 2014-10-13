@@ -15,6 +15,8 @@ type PointerQueue interface {
 	// Single Read/Write
 	ReadSingle() unsafe.Pointer
 	WriteSingle(unsafe.Pointer) bool
+	ReadSingleBlocking() unsafe.Pointer
+	WriteSingleBlocking(unsafe.Pointer)
 	ReadSingleLazy() unsafe.Pointer
 	WriteSingleLazy(unsafe.Pointer) bool
 	//Acquire/Release Read
@@ -94,6 +96,13 @@ func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
 	return b
 }
 
+func (q *PointerQ) WriteSingleBlocking(val unsafe.Pointer) {
+	b := q.WriteSingle(val)
+	for !b {
+		b = q.WriteSingle(val)
+	}
+}
+
 func (q *PointerQ) WriteSingleLazy(val unsafe.Pointer) bool {
 	b := q.writeSingle(val)
 	if b {
@@ -121,6 +130,14 @@ func (q *PointerQ) ReadSingle() unsafe.Pointer {
 	val := q.readSingle()
 	if val != nil {
 		atomic.AddInt64(&q.read.Value, 1)
+	}
+	return val
+}
+
+func (q *PointerQ) ReadSingleBlocking() unsafe.Pointer {
+	val := q.ReadSingle()
+	for val == nil {
+		val = q.ReadSingle()
 	}
 	return val
 }
