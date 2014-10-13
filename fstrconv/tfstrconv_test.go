@@ -67,7 +67,7 @@ func TestTest(t *testing.T) {
 }
 
 func helper(x int64, s string, t *testing.T) {
-	r := Itoa64Delim(x, ',')
+	r := ItoaDelim(x, ',')
 	if r != s {
 		t.Errorf("%d not reversed properly, expecting %s got %s instead", x, s, r)
 	}
