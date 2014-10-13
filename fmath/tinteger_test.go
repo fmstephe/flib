@@ -100,7 +100,7 @@ func TestNxtPowerOfTwoRandom(t *testing.T) {
 			low := n >> 1
 			m := rand.Int63n(n-low) + low + 1
 			nxt := NxtPowerOfTwo(m)
-			if nxt != m {
+			if nxt != n {
 				t.Errorf("For input %d expected NxtPowerOfTwo = %d, found %d", m, n, nxt)
 			}
 		}
