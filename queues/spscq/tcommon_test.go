@@ -80,7 +80,7 @@ func testAcquireWrite(writeBufferSize, from, to int64, cq, snap *commonQ) error 
 		return errors.New(fmt.Sprintf(msg, actualWriteSize, writeBufferSize))
 	}
 	if (actualWriteSize < writeBufferSize) && (cq.write.Value+actualWriteSize) != (cq.readCache.Value+cq.size) {
-		if (cq.write.Value + cq.writeSize.Value)%cq.size != 0 {
+		if (cq.write.Value+cq.writeSize.Value)%cq.size != 0 {
 			msg := "Actual write size (%d) could have been bigger.\nsnap %s\ncq  %s"
 			return errors.New(fmt.Sprintf(msg, actualWriteSize, snap.String(), cq.String()))
 		}
@@ -129,7 +129,7 @@ func testAcquireRead(readBufferSize, from, to int64, cq, snap *commonQ) error {
 		return errors.New(fmt.Sprintf(msg, actualReadSize, readBufferSize))
 	}
 	if (actualReadSize < readBufferSize) && (cq.read.Value+actualReadSize) != (cq.writeCache.Value) {
-		if (cq.read.Value + cq.readSize.Value)%cq.size != 0 {
+		if (cq.read.Value+cq.readSize.Value)%cq.size != 0 {
 			msg := "Actual read size (%d) could have been bigger.\nsnap %s\ncq  %s"
 			return errors.New(fmt.Sprintf(msg, actualReadSize, snap.String(), cq.String()))
 		}
@@ -258,9 +258,13 @@ func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 		t.Error(err.Error())
 		return
 	}
-	for j := int64(0); j < iterations; j++ {
-		go func(cq *commonQ) {
-			// write
+	end := make(chan bool, 2)
+	go func(cq *commonQ) {
+		// write
+		defer func() {
+			end <- true
+		}()
+		for i := int64(0); i < iterations*writeSize; {
 			snap := copyForWrite(cq)
 			wfrom, wto := cq.acquireWrite(writeSize)
 			if err := testAcquireWrite(writeSize, wfrom, wto, cq, snap); err != nil {
@@ -273,9 +277,15 @@ func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 				t.Error(err.Error())
 				return
 			}
-		}(&cqs)
-		go func(cq *commonQ) {
-			// read
+			i += (wto - wfrom)
+		}
+	}(&cqs)
+	go func(cq *commonQ) {
+		// read
+		defer func() {
+			end <- true
+		}()
+		for i := int64(0); i < iterations*writeSize; {
 			snap := copyForRead(cq)
 			rfrom, rto := cq.acquireRead(readSize)
 			if err := testAcquireRead(readSize, rfrom, rto, cq, snap); err != nil {
@@ -288,6 +298,9 @@ func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 				t.Error(err.Error())
 				return
 			}
-		}(&cqs)
-	}
+			i += (rto - rfrom)
+		}
+	}(&cqs)
+	<-end
+	<-end
 }
