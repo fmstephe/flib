@@ -10,7 +10,7 @@ import (
 // Test that we can call newCommonQ(...) for every power of 2 in an int64
 func TestNewCommonQPowerOf2(t *testing.T) {
 	for size := int64(1); size <= maxSize; size *= 2 {
-		_, err := newCommonQ(size)
+		_, err := newCommonQ(size, 0)
 		if err != nil {
 			t.Errorf("Error found for size %d", size)
 		}
@@ -27,7 +27,7 @@ func TestNewCommonQNotPowerOf2(t *testing.T) {
 }
 
 func makeBadQ(size int64, t *testing.T) {
-	_, err := newCommonQ(size)
+	_, err := newCommonQ(size, 0)
 	if err == nil {
 		t.Errorf("No error detected for size %d", size)
 	}
@@ -188,7 +188,7 @@ func TestHeavyWriteLightRead(t *testing.T) {
 }
 
 func testSequentialReadWrites(t *testing.T, size int64, writeSize, readSize, iterations int64) {
-	cqs, err := newCommonQ(size)
+	cqs, err := newCommonQ(size, 0)
 	if err != nil {
 		t.Error(err.Error())
 		return
@@ -249,7 +249,7 @@ func TestHeavyWriteLightReadConc(t *testing.T) {
 }
 
 func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, iterations int64) {
-	cqs, err := newCommonQ(size)
+	cqs, err := newCommonQ(size, 0)
 	if err != nil {
 		t.Error(err.Error())
 		return
