@@ -80,8 +80,10 @@ func testAcquireWrite(writeBufferSize, from, to int64, cq, snap *commonQ) error 
 		return errors.New(fmt.Sprintf(msg, actualWriteSize, writeBufferSize))
 	}
 	if (actualWriteSize < writeBufferSize) && (cq.write.Value+actualWriteSize) != (cq.readCache.Value+cq.size) {
-		msg := "Actual write size (%d) could have been bigger.\nsnap %s\ncq  %s"
-		return errors.New(fmt.Sprintf(msg, actualWriteSize, snap.String(), cq.String()))
+		if (cq.write.Value + cq.writeSize.Value)%cq.size != 0 {
+			msg := "Actual write size (%d) could have been bigger.\nsnap %s\ncq  %s"
+			return errors.New(fmt.Sprintf(msg, actualWriteSize, snap.String(), cq.String()))
+		}
 	}
 	if (cq.write.Value + actualWriteSize) > (cq.readCache.Value + cq.size) {
 		msg := "Actual write size (%d) overwrites unread data.\ncq %s"
@@ -127,8 +129,10 @@ func testAcquireRead(readBufferSize, from, to int64, cq, snap *commonQ) error {
 		return errors.New(fmt.Sprintf(msg, actualReadSize, readBufferSize))
 	}
 	if (actualReadSize < readBufferSize) && (cq.read.Value+actualReadSize) != (cq.writeCache.Value) {
-		msg := "Actual read size (%d) could have been bigger.\nsnap %s\ncq  %s"
-		return errors.New(fmt.Sprintf(msg, actualReadSize, snap.String(), cq.String()))
+		if (cq.read.Value + cq.readSize.Value)%cq.size != 0 {
+			msg := "Actual read size (%d) could have been bigger.\nsnap %s\ncq  %s"
+			return errors.New(fmt.Sprintf(msg, actualReadSize, snap.String(), cq.String()))
+		}
 	}
 	if (cq.read.Value + actualReadSize) > cq.writeCache.Value {
 		msg := "Actual read size (%d) reads past write position (%d).\ncq %s"
