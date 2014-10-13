@@ -1,12 +1,11 @@
 package main
 
 import (
+	"github.com/fmstephe/flib/queues/spscq"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"time"
-
-	"github.com/fmstephe/flib/queues/spscq"
 )
 
 func bcqarlTest(msgCount, pause, msgSize, qSize int64, profile bool) {

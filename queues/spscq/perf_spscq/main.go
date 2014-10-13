@@ -3,9 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"runtime"
-
 	"github.com/fmstephe/flib/fstrconv"
+	"runtime"
 )
 
 var (

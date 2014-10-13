@@ -1,14 +1,13 @@
 package main
 
 import (
+	"github.com/fmstephe/flib/fmath"
+	"github.com/fmstephe/flib/queues/spscq"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"time"
 	"unsafe"
-
-	"github.com/fmstephe/flib/fmath"
-	"github.com/fmstephe/flib/queues/spscq"
 )
 
 func pqarlTest(msgCount, pause, batchSize, qSize int64, profile bool) {

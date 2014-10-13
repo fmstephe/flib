@@ -1,13 +1,12 @@
 package spscq
 
 import (
-	"fmt"
-	"sync/atomic"
-
 	"errors"
-	"github.com/fmstephe/flib/ftime"
+	"fmt"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
+	"github.com/fmstephe/flib/ftime"
+	"sync/atomic"
 )
 
 type ByteChunkQueue interface {

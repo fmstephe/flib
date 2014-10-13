@@ -1,11 +1,11 @@
 package spscq
 
 import (
-	"sync/atomic"
-	"unsafe"
-	"github.com/fmstephe/flib/ftime"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
+	"github.com/fmstephe/flib/ftime"
+	"sync/atomic"
+	"unsafe"
 )
 
 type PointerQueue interface {
