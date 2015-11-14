@@ -1,0 +1,3 @@
+A small extension to the Go Standard library to support writing fast multi-threaded applications.
+
+Most packages mimic the standard library and a fairly straightforward. However, the queues/spscq directory contains a small collection of high performance in-memory queues. The spscq stands for 'Single Producer, Single Consumer Queue' which means they are only safe when a single goroutine performs writes (and only writes) and a single goroutine performs reads (and only reads). Although they are somewhat delicate these queues are very fast. The rest of flib mostly serves the development of these queues.
