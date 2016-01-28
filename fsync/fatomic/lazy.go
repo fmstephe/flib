@@ -1,4 +1,5 @@
 // +build go1.4 go1.5
+// +build amd64 x86
 
 package fatomic
 
