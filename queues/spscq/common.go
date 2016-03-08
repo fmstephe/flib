@@ -3,21 +3,21 @@ package spscq
 import (
 	"errors"
 	"fmt"
+	"sync/atomic"
+
 	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 	"github.com/fmstephe/flib/ftime"
-	"sync/atomic"
 )
 
 const maxSize = 1 << 41
 
 type commonQ struct {
 	// Readonly Fields
-	size       int64
-	mask       int64
-	pause      int64
-	_ropadding padded.CacheBuffer
+	size  int64
+	mask  int64
+	pause int64
 	// Writer fields
 	write        padded.Int64
 	writeSize    padded.Int64
