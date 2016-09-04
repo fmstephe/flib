@@ -7,8 +7,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/fmstephe/flib/fstrconv"
 	"runtime"
+	"unsafe"
+
+	"github.com/fmstephe/flib/fstrconv"
 )
 
 var (
@@ -94,4 +96,9 @@ func expect(sum, checksum int64) {
 	if sum != checksum {
 		print(fmt.Sprintf("Sum does not match checksum. sum = %d, checksum = %d\n", sum, checksum))
 	}
+}
+
+func getValidPointer() uintptr {
+	intVal := 0
+	return uintptr(unsafe.Pointer(&intVal))
 }

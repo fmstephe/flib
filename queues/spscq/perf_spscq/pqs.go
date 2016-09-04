@@ -16,6 +16,7 @@ import (
 )
 
 func pqsTest(msgCount, pause, qSize int64, profile bool) {
+	ptr := getValidPointer()
 	q, _ := spscq.NewPointerQ(qSize, pause)
 	done := make(chan bool)
 	if profile {
@@ -26,18 +27,18 @@ func pqsTest(msgCount, pause, qSize int64, profile bool) {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	go pqsDequeue(msgCount, q, done)
-	go pqsEnqueue(msgCount, q, done)
+	go pqsDequeue(msgCount, q, ptr, done)
+	go pqsEnqueue(msgCount, q, ptr, done)
 	<-done
 	<-done
 }
 
-func pqsEnqueue(msgCount int64, q *spscq.PointerQ, done chan bool) {
+func pqsEnqueue(msgCount int64, q *spscq.PointerQ, ptr uintptr, done chan bool) {
 	runtime.LockOSThread()
 	t := 1
 	var v unsafe.Pointer
 	for i := int64(0); i < msgCount; i++ {
-		v = unsafe.Pointer(uintptr(uint(t)))
+		v = unsafe.Pointer(uintptr(t) + ptr)
 		w := q.WriteSingle(v)
 		for w == false {
 			w = q.WriteSingle(v)
@@ -47,7 +48,7 @@ func pqsEnqueue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 	done <- true
 }
 
-func pqsDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
+func pqsDequeue(msgCount int64, q *spscq.PointerQ, ptr uintptr, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
@@ -58,7 +59,7 @@ func pqsDequeue(msgCount int64, q *spscq.PointerQ, done chan bool) {
 		for v == nil {
 			v = q.ReadSingle()
 		}
-		pv := int64(uintptr(v))
+		pv := int64(uintptr(v) - ptr)
 		sum += pv
 		checksum += i
 		if pv != i {

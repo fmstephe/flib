@@ -5,15 +5,17 @@
 package main
 
 import (
-	"github.com/fmstephe/flib/queues/spscq"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"time"
 	"unsafe"
+
+	"github.com/fmstephe/flib/queues/spscq"
 )
 
 func pqrwTest(msgCount, pause, batchSize, qSize int64, profile bool) {
+	ptr := getValidPointer()
 	q, _ := spscq.NewPointerQ(qSize, pause)
 	done := make(chan bool)
 	if profile {
@@ -24,13 +26,13 @@ func pqrwTest(msgCount, pause, batchSize, qSize int64, profile bool) {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	go pqrwDequeue(msgCount, q, batchSize, done)
-	go pqrwEnqueue(msgCount, q, batchSize, done)
+	go pqrwDequeue(msgCount, q, batchSize, ptr, done)
+	go pqrwEnqueue(msgCount, q, batchSize, ptr, done)
 	<-done
 	<-done
 }
 
-func pqrwEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+func pqrwEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, ptr uintptr, done chan bool) {
 	runtime.LockOSThread()
 	t := int64(1)
 	buffer := make([]unsafe.Pointer, batchSize)
@@ -40,7 +42,7 @@ func pqrwEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan b
 		}
 		for i := range buffer {
 			t++
-			buffer[i] = unsafe.Pointer(uintptr(uint(t)))
+			buffer[i] = unsafe.Pointer(uintptr(t) + ptr)
 		}
 		for w := false; w == false; w = q.Write(buffer) {
 		}
@@ -48,7 +50,7 @@ func pqrwEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan b
 	done <- true
 }
 
-func pqrwDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan bool) {
+func pqrwDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, ptr uintptr, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
@@ -63,7 +65,7 @@ func pqrwDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, done chan b
 		}
 		for i := range buffer {
 			t++
-			sum += int64(uintptr(buffer[i]))
+			sum += int64(uintptr(buffer[i]) - ptr)
 			checksum += t
 		}
 	}
