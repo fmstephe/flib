@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"runtime"
+	"runtime/debug"
 	"unsafe"
 
 	"github.com/fmstephe/flib/fstrconv"
@@ -42,44 +43,35 @@ func main() {
 	runtime.GOMAXPROCS(4)
 	flag.Parse()
 	var msgCount int64 = (*millionMsgs) * 1000 * 1000
+	debug.SetGCPercent(-1)
 	if *bqrw || *all {
-		runtime.GC()
 		bqrwTest(msgCount, *pause, *bytesSize, *qSize, *profile)
 	}
 	if *bqar || *all {
-		runtime.GC()
 		bqarTest(msgCount, *pause, *bytesSize, *qSize, *profile)
 	}
 	if *bqarl || *all {
-		runtime.GC()
 		bqarlTest(msgCount, *pause, *bytesSize, *qSize, *profile)
 	}
 	if *bcqar || *all {
-		runtime.GC()
 		bcqarTest(msgCount, *pause, *chunkSize, *qSize, *profile)
 	}
 	if *bcqarl || *all {
-		runtime.GC()
 		bcqarlTest(msgCount, *pause, *chunkSize, *qSize, *profile)
 	}
 	if *pqrw || *all {
-		runtime.GC()
 		pqrwTest(msgCount, *pause, *batchSize, *qSize, *profile)
 	}
 	if *pqar || *all {
-		runtime.GC()
 		pqarTest(msgCount, *pause, *batchSize, *qSize, *profile)
 	}
 	if *pqarl || *all {
-		runtime.GC()
 		pqarlTest(msgCount, *pause, *batchSize, *qSize, *profile)
 	}
 	if *pqs || *all {
-		runtime.GC()
 		pqsTest(msgCount, *pause, *qSize, *profile)
 	}
 	if *pqsl || *all {
-		runtime.GC()
 		pqslTest(msgCount, *pause, *qSize, *profile)
 	}
 }
