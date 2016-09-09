@@ -15,7 +15,7 @@ import (
 )
 
 func pqrwTest(msgCount, pause, batchSize, qSize int64, profile bool) {
-	ptr := getValidPointer()
+	ptrs, checksum := getValidPointers(msgCount)
 	q, _ := spscq.NewPointerQ(qSize, pause)
 	done := make(chan bool)
 	if profile {
@@ -26,23 +26,23 @@ func pqrwTest(msgCount, pause, batchSize, qSize int64, profile bool) {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	go pqrwDequeue(msgCount, q, batchSize, ptr, done)
-	go pqrwEnqueue(msgCount, q, batchSize, ptr, done)
+	go pqrwDequeue(msgCount, q, batchSize, checksum, done)
+	go pqrwEnqueue(msgCount, q, batchSize, ptrs, done)
 	<-done
 	<-done
 }
 
-func pqrwEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, ptr uintptr, done chan bool) {
+func pqrwEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, ptrs []unsafe.Pointer, done chan bool) {
 	runtime.LockOSThread()
-	t := int64(1)
 	buffer := make([]unsafe.Pointer, batchSize)
-	for t < msgCount {
+	for t := int64(0); t < msgCount; t += int64(len(buffer)) {
 		if batchSize > msgCount-t {
 			buffer = buffer[:msgCount-t]
 		}
+		// NB: It cuts ~40% or run time to use copy
+		// copy(buffer, ptrs[t:t+int64(len(buffer))])
 		for i := range buffer {
-			t++
-			buffer[i] = unsafe.Pointer(uintptr(t) + ptr)
+			buffer[i] = ptrs[t+int64(i)]
 		}
 		for w := false; w == false; w = q.Write(buffer) {
 		}
@@ -50,23 +50,19 @@ func pqrwEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, ptr uintptr
 	done <- true
 }
 
-func pqrwDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, ptr uintptr, done chan bool) {
+func pqrwDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, checksum int64, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
-	checksum := int64(0)
-	t := int64(1)
 	buffer := make([]unsafe.Pointer, batchSize)
-	for t < msgCount {
+	for t := int64(0); t < msgCount; t += int64(len(buffer)) {
 		if batchSize > msgCount-t {
 			buffer = buffer[:msgCount-t]
 		}
 		for r := false; r == false; r = q.Read(buffer) {
 		}
 		for i := range buffer {
-			t++
-			sum += int64(uintptr(buffer[i]) - ptr)
-			checksum += t
+			sum += int64(uintptr(buffer[i]))
 		}
 	}
 	nanos := time.Now().UnixNano() - start

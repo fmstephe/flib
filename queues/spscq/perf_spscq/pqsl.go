@@ -5,7 +5,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -16,7 +15,7 @@ import (
 )
 
 func pqslTest(msgCount, pause, qSize int64, profile bool) {
-	ptr := getValidPointer()
+	ptrs, checksum := getValidPointers(msgCount)
 	q, _ := spscq.NewPointerQ(qSize, pause)
 	done := make(chan bool)
 	if profile {
@@ -27,44 +26,35 @@ func pqslTest(msgCount, pause, qSize int64, profile bool) {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	go pqslDequeue(msgCount, q, ptr, done)
-	go pqslEnqueue(msgCount, q, ptr, done)
+	go pqslDequeue(msgCount, q, checksum, done)
+	go pqslEnqueue(msgCount, q, ptrs, done)
 	<-done
 	<-done
 }
 
-func pqslEnqueue(msgCount int64, q *spscq.PointerQ, ptr uintptr, done chan bool) {
+func pqslEnqueue(msgCount int64, q *spscq.PointerQ, ptrs []unsafe.Pointer, done chan bool) {
 	runtime.LockOSThread()
 	t := 1
-	var v unsafe.Pointer
-	for i := int64(0); i < msgCount; i++ {
-		v = unsafe.Pointer(uintptr(t) + ptr)
-		w := q.WriteSingleLazy(v)
+	for _, ptr := range ptrs {
+		w := q.WriteSingleLazy(ptr)
 		for w == false {
-			w = q.WriteSingleLazy(v)
+			w = q.WriteSingleLazy(ptr)
 		}
 		t++
 	}
 	done <- true
 }
 
-func pqslDequeue(msgCount int64, q *spscq.PointerQ, ptr uintptr, done chan bool) {
+func pqslDequeue(msgCount int64, q *spscq.PointerQ, checksum int64, done chan bool) {
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
-	checksum := int64(0)
-	var v unsafe.Pointer
-	for i := int64(1); i <= msgCount; i++ {
-		v = q.ReadSingleLazy()
+	for i := int64(0); i < msgCount; i++ {
+		v := q.ReadSingleLazy()
 		for v == nil {
 			v = q.ReadSingleLazy()
 		}
-		pv := int64(uintptr(v) - ptr)
-		sum += pv
-		checksum += i
-		if pv != i {
-			print(fmt.Sprintf("Bad message. Expected %d, found %d (found-expected = %d)", pv, i, pv-i))
-		}
+		sum += int64(uintptr(v))
 	}
 	nanos := time.Now().UnixNano() - start
 	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pqsl")

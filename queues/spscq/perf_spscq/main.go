@@ -90,7 +90,12 @@ func expect(sum, checksum int64) {
 	}
 }
 
-func getValidPointer() uintptr {
-	intVal := 0
-	return uintptr(unsafe.Pointer(&intVal))
+func getValidPointers(num int64) (ptrs []unsafe.Pointer, checksum int64) {
+	ptrs = make([]unsafe.Pointer, num)
+	for i := range ptrs {
+		intVal := 0
+		ptrs[i] = unsafe.Pointer(&intVal)
+		checksum += int64(uintptr(ptrs[i]))
+	}
+	return ptrs, checksum
 }
