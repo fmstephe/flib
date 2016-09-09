@@ -16,11 +16,6 @@ import (
 
 var (
 	all = flag.Bool("all", false, "Runs all queue tests")
-	// ByteQ
-	bqrw      = flag.Bool("bqrw", false, "Runs ByteQ using Read/Write methods")
-	bqar      = flag.Bool("bqar", false, "Runs ByteQ using Acquire/Release methods")
-	bqarl     = flag.Bool("bqarl", false, "Runs ByteQ with lazy Acquire/Release methods")
-	bytesSize = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ tests")
 	// ByteMsgQ
 	bmqar   = flag.Bool("bmqar", false, "Runs ByteMsgQ using Acquire/Release methods")
 	bmqarl  = flag.Bool("bmqarl", false, "Runs ByteMsgQ using lazy Acquire/Release methods")
@@ -31,8 +26,6 @@ var (
 	chunkSize = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ tests")
 	// PointerQ
 	pqrw      = flag.Bool("pqrw", false, "Runs PointerQ using Read/Write methods")
-	pqar      = flag.Bool("pqar", false, "Runs PointerQ using Acquire/Release methods")
-	pqarl     = flag.Bool("pqarl", false, "Runs PointerQ with lazy Acquire/Release methods")
 	pqs       = flag.Bool("pqs", false, "Runs PointerQ reading and writing a pointer at a time")
 	pqsl      = flag.Bool("pqsl", false, "Runs PointerQ lazily reading and writing a pointer at a time")
 	batchSize = flag.Int64("batchSize", 64, "The size of the read/write batches used by PointerQ")
@@ -48,15 +41,6 @@ func main() {
 	flag.Parse()
 	var msgCount int64 = (*millionMsgs) * 1000 * 1000
 	debug.SetGCPercent(-1)
-	if *bqrw || *all {
-		bqrwTest(msgCount, *pause, *bytesSize, *qSize, *profile)
-	}
-	if *bqar || *all {
-		bqarTest(msgCount, *pause, *bytesSize, *qSize, *profile)
-	}
-	if *bqarl || *all {
-		bqarlTest(msgCount, *pause, *bytesSize, *qSize, *profile)
-	}
 	if *bmqar || *all {
 		bmqarTest(msgCount, *pause, *msgSize, *qSize, *profile)
 	}
@@ -71,12 +55,6 @@ func main() {
 	}
 	if *pqrw || *all {
 		pqrwTest(msgCount, *pause, *batchSize, *qSize, *profile)
-	}
-	if *pqar || *all {
-		pqarTest(msgCount, *pause, *batchSize, *qSize, *profile)
-	}
-	if *pqarl || *all {
-		pqarlTest(msgCount, *pause, *batchSize, *qSize, *profile)
 	}
 	if *pqs || *all {
 		pqsTest(msgCount, *pause, *qSize, *profile)

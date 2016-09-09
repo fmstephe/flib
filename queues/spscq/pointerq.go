@@ -15,7 +15,7 @@ import (
 
 type PointerQueue interface {
 	// Simple Read/Write
-	Read([]unsafe.Pointer) bool
+	Read([]unsafe.Pointer) []unsafe.Pointer
 	Write([]unsafe.Pointer) bool
 	// Single Read/Write
 	ReadSingle() unsafe.Pointer
@@ -24,14 +24,6 @@ type PointerQueue interface {
 	WriteSingleBlocking(unsafe.Pointer)
 	ReadSingleLazy() unsafe.Pointer
 	WriteSingleLazy(unsafe.Pointer) bool
-	//Acquire/Release Read
-	AcquireRead(int64) []unsafe.Pointer
-	ReleaseRead()
-	ReleaseReadLazy()
-	//Acquire/Release Write
-	AcquireWrite(int64) []unsafe.Pointer
-	ReleaseWrite()
-	ReleaseWriteLazy()
 }
 
 func NewPointerQueue(size, pause int64) (PointerQueue, error) {
@@ -55,40 +47,24 @@ func NewPointerQ(size, pause int64) (*PointerQ, error) {
 	return &PointerQ{ringBuffer: ringBuffer, commonQ: cq}, nil
 }
 
-func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
-	from, to := q.acquireRead(bufferSize)
-	return q.ringBuffer[from:to]
-}
-
-func (q *PointerQ) AcquireWrite(bufferSize int64) []unsafe.Pointer {
-	from, to := q.acquireWrite(bufferSize)
-	return q.ringBuffer[from:to]
-}
-
-func (q *PointerQ) Read(buffer []unsafe.Pointer) bool {
-	bufferSize := int64(len(buffer))
-	from, to, wrap := q.readWrappingBuffer(bufferSize)
-	if to == 0 {
-		return false
+func (q *PointerQ) Read(buffer []unsafe.Pointer) []unsafe.Pointer {
+	from, to := q.acquireRead(int64(len(buffer)))
+	bufferSize := to - from
+	if bufferSize == 0 {
+		return nil
 	}
 	copy(buffer, q.ringBuffer[from:to])
-	if wrap != 0 {
-		copy(buffer[bufferSize-wrap:], q.ringBuffer[:wrap])
-	}
 	atomic.AddInt64(&q.read.Value, bufferSize)
-	return true
+	return buffer[:bufferSize]
 }
 
 func (q *PointerQ) Write(buffer []unsafe.Pointer) bool {
 	bufferSize := int64(len(buffer))
-	from, to, wrap := q.writeWrappingBuffer(bufferSize)
+	from, to := q.acquireWrite(bufferSize)
 	if to == 0 {
 		return false
 	}
 	copy(q.ringBuffer[from:to], buffer)
-	if wrap != 0 {
-		copy(q.ringBuffer[:wrap], buffer[bufferSize-wrap:])
-	}
 	atomic.AddInt64(&q.write.Value, bufferSize)
 	return true
 }

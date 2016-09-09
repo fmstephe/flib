@@ -40,7 +40,7 @@ func pqrwEnqueue(msgCount int64, q *spscq.PointerQ, batchSize int64, ptrs []unsa
 			buffer = buffer[:msgCount-t]
 		}
 		// NB: It cuts ~40% or run time to use copy
-		// copy(buffer, ptrs[t:t+int64(len(buffer))])
+		//copy(buffer, ptrs[t:t+int64(len(buffer))])
 		for i := range buffer {
 			buffer[i] = ptrs[t+int64(i)]
 		}
@@ -55,15 +55,15 @@ func pqrwDequeue(msgCount int64, q *spscq.PointerQ, batchSize int64, checksum in
 	start := time.Now().UnixNano()
 	sum := int64(0)
 	buffer := make([]unsafe.Pointer, batchSize)
-	for t := int64(0); t < msgCount; t += int64(len(buffer)) {
-		if batchSize > msgCount-t {
-			buffer = buffer[:msgCount-t]
+	for t := int64(0); t < msgCount; {
+		readBuffer := q.Read(buffer)
+		for readBuffer == nil {
+			readBuffer = q.Read(buffer)
 		}
-		for r := false; r == false; r = q.Read(buffer) {
-		}
-		for i := range buffer {
+		for i := range readBuffer {
 			sum += int64(uintptr(buffer[i]))
 		}
+		t += int64(len(readBuffer))
 	}
 	nanos := time.Now().UnixNano() - start
 	printSummary(msgCount, nanos, q.FailedWrites(), q.FailedReads(), "pqrw")

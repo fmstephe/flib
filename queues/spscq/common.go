@@ -46,23 +46,18 @@ func newCommonQ(size, pause int64) (commonQ, error) {
 }
 
 func (q *commonQ) acquireWrite(bufferSize int64) (from int64, to int64) {
-	write := q.write.Value
-	from = write & q.mask
-	bufferSize = fmath.Min(bufferSize, q.size-from)
-	writeTo := write + bufferSize
+	writeTo := q.write.Value + bufferSize
 	readLimit := writeTo - q.size
-	to = from + bufferSize
 	if readLimit > q.readCache.Value {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
 		if readLimit > q.readCache.Value {
-			to = q.readCache.Value & q.mask
+			q.failedWrites.Value++
+			ftime.Pause(q.pause)
+			return 0, 0
 		}
 	}
-	if from == to {
-		q.failedWrites.Value++
-		ftime.Pause(q.pause)
-	}
-	q.writeSize.Value = to - from
+	from = q.write.Value & q.mask
+	to = fmath.Min(from+bufferSize, q.size)
 	return from, to
 }
 
@@ -77,22 +72,20 @@ func (q *commonQ) ReleaseWriteLazy() {
 }
 
 func (q *commonQ) acquireRead(bufferSize int64) (from int64, to int64) {
-	read := q.read.Value
-	from = read & q.mask
-	bufferSize = fmath.Min(bufferSize, q.size-from)
-	readTo := read + bufferSize
-	to = from + bufferSize
+	readTo := q.read.Value + bufferSize
 	if readTo > q.writeCache.Value {
 		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
 		if readTo > q.writeCache.Value {
-			to = q.writeCache.Value & q.mask
+			bufferSize = q.writeCache.Value - q.read.Value
+			if bufferSize == 0 {
+				q.failedReads.Value++
+				ftime.Pause(q.pause)
+				return 0, 0
+			}
 		}
 	}
-	if from == to {
-		q.failedReads.Value++
-		ftime.Pause(q.pause)
-	}
-	q.readSize.Value = to - from
+	from = q.read.Value & q.mask
+	to = fmath.Min(from+bufferSize, q.size)
 	return from, to
 }
 
@@ -104,39 +97,6 @@ func (q *commonQ) ReleaseRead() {
 func (q *commonQ) ReleaseReadLazy() {
 	fatomic.LazyStore(&q.read.Value, q.read.Value+q.readSize.Value)
 	q.readSize.Value = 0
-}
-
-func (q *commonQ) writeWrappingBuffer(bufferSize int64) (from int64, to int64, wrap int64) {
-	writeTo := q.write.Value + bufferSize
-	readLimit := writeTo - q.size
-	if readLimit > q.readCache.Value {
-		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
-		if readLimit > q.readCache.Value {
-			q.failedWrites.Value++
-			ftime.Pause(q.pause)
-			return 0, 0, 0
-		}
-	}
-	from = q.write.Value & q.mask
-	to = fmath.Min(from+bufferSize, q.size)
-	wrap = bufferSize - (to - from)
-	return from, to, wrap
-}
-
-func (q *commonQ) readWrappingBuffer(bufferSize int64) (from int64, to int64, wrap int64) {
-	readTo := q.read.Value + bufferSize
-	if readTo > q.writeCache.Value {
-		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
-		if readTo > q.writeCache.Value {
-			q.failedReads.Value++
-			ftime.Pause(q.pause)
-			return 0, 0, 0
-		}
-	}
-	from = q.read.Value & q.mask
-	to = fmath.Min(from+bufferSize, q.size)
-	wrap = bufferSize - (to - from)
-	return from, to, wrap
 }
 
 func (q *commonQ) FailedWrites() int64 {
