@@ -5,8 +5,9 @@
 package ftime
 
 import (
-	. "github.com/fmstephe/flib/fstrconv"
 	"testing"
+
+	. "github.com/fmstephe/flib/fstrconv"
 )
 
 func TestCounter(t *testing.T) {

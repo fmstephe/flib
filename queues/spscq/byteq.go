@@ -5,8 +5,9 @@
 package spscq
 
 import (
-	"github.com/fmstephe/flib/fsync/padded"
 	"sync/atomic"
+
+	"github.com/fmstephe/flib/fsync/padded"
 )
 
 type ByteQueue interface {

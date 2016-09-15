@@ -7,8 +7,9 @@ package spscq
 import (
 	"errors"
 	"fmt"
-	"github.com/fmstephe/flib/fmath"
 	"testing"
+
+	"github.com/fmstephe/flib/fmath"
 )
 
 // Test that we can call newCommonQ(...) for every power of 2 in an int64
