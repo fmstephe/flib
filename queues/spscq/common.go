@@ -148,7 +148,6 @@ func (q *commonQ) FailedReads() int64 {
 }
 
 func (q *commonQ) String() string {
-	msg := "{Size %d, mask %d, write %d, writeSize %d, failedWrites %d, readCache %d, read %d, readSize %d, failedReads %d, writeCache %d}"
 	size := q.size
 	mask := q.mask
 	write := q.write.Value
@@ -159,5 +158,5 @@ func (q *commonQ) String() string {
 	readSize := q.readSize.Value
 	failedReads := q.failedReads.Value
 	writeCache := q.writeCache.Value
-	return fmt.Sprintf(msg, size, mask, write, writeSize, failedWrites, readCache, read, readSize, failedReads, writeCache)
+	return fmt.Sprintf("{Size %d, mask %d, write %d, writeSize %d, failedWrites %d, readCache %d, read %d, readSize %d, failedReads %d, writeCache %d}", size, mask, write, writeSize, failedWrites, readCache, read, readSize, failedReads, writeCache)
 }
