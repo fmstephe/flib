@@ -21,6 +21,10 @@ var (
 	bqar      = flag.Bool("bqar", false, "Runs ByteQ using Acquire/Release methods")
 	bqarl     = flag.Bool("bqarl", false, "Runs ByteQ with lazy Acquire/Release methods")
 	bytesSize = flag.Int64("bytesSize", 63, "The number of bytes to read/write in ByteQ tests")
+	// ByteMsgQ
+	bmqar   = flag.Bool("bmqar", false, "Runs ByteMsgQ using Acquire/Release methods")
+	bmqarl  = flag.Bool("bmqarl", false, "Runs ByteMsgQ using lazy Acquire/Release methods")
+	msgSize = flag.Int64("msgSize", 64, "The size of messages to read/write in ByteMsgQ tests")
 	// ByteChunkQ
 	bcqar     = flag.Bool("bcqar", false, "Runs ByteChunkQ using Acquire/Release methods")
 	bcqarl    = flag.Bool("bcqarl", false, "Runs ByteChunkQ with lazy Acquire/Release methods")
@@ -52,6 +56,12 @@ func main() {
 	}
 	if *bqarl || *all {
 		bqarlTest(msgCount, *pause, *bytesSize, *qSize, *profile)
+	}
+	if *bmqar || *all {
+		bmqarTest(msgCount, *pause, *msgSize, *qSize, *profile)
+	}
+	if *bmqarl || *all {
+		bmqarlTest(msgCount, *pause, *msgSize, *qSize, *profile)
 	}
 	if *bcqar || *all {
 		bcqarTest(msgCount, *pause, *chunkSize, *qSize, *profile)
