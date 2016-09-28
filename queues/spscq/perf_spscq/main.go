@@ -25,40 +25,51 @@ var (
 	bcqarl    = flag.Bool("bcqarl", false, "Runs ByteChunkQ with lazy Acquire/Release methods")
 	chunkSize = flag.Int64("chunkSize", 64, "The number of bytes to read/write in ByteChunkQ tests")
 	// PointerQ
-	pqrw      = flag.Bool("pqrw", false, "Runs PointerQ using Read/Write methods")
+	pqar      = flag.Bool("pqar", false, "Runs PointerQ using Acquire/Release methods")
+	pqarl     = flag.Bool("pqarl", false, "Runs PointerQ using lazy Acquire/Release methods")
 	pqs       = flag.Bool("pqs", false, "Runs PointerQ reading and writing a pointer at a time")
 	pqsl      = flag.Bool("pqsl", false, "Runs PointerQ lazily reading and writing a pointer at a time")
 	batchSize = flag.Int64("batchSize", 64, "The size of the read/write batches used by PointerQ")
 	// Addtional flags
 	millionMsgs = flag.Int64("mm", 10, "The number of messages (in millions) to send")
 	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue's ring-buffer")
-	pause       = flag.Int64("pause", 10*1000, "The size of the pause when a read or write fails")
+	pause       = flag.Int64("pause", 20*1000, "The size of the pause when a read or write fails")
 	profile     = flag.Bool("profile", false, "Activates the Go profiler, outputting into a prof_* file.")
 )
 
 func main() {
 	runtime.GOMAXPROCS(4)
 	flag.Parse()
-	var msgCount int64 = (*millionMsgs) * 1000 * 1000
+	msgCount := (*millionMsgs) * 1e6
 	debug.SetGCPercent(-1)
 	if *bmqar || *all {
 		bmqarTest(msgCount, *pause, *msgSize, *qSize, *profile)
 	}
+	runtime.GC()
 	if *bmqarl || *all {
 		bmqarlTest(msgCount, *pause, *msgSize, *qSize, *profile)
 	}
+	runtime.GC()
 	if *bcqar || *all {
 		bcqarTest(msgCount, *pause, *chunkSize, *qSize, *profile)
 	}
+	runtime.GC()
 	if *bcqarl || *all {
 		bcqarlTest(msgCount, *pause, *chunkSize, *qSize, *profile)
 	}
-	if *pqrw || *all {
-		pqrwTest(msgCount, *pause, *batchSize, *qSize, *profile)
+	runtime.GC()
+	if *pqar || *all {
+		pqarTest(msgCount, *pause, *batchSize, *qSize, *profile)
 	}
+	runtime.GC()
+	if *pqarl || *all {
+		pqarlTest(msgCount, *pause, *batchSize, *qSize, *profile)
+	}
+	runtime.GC()
 	if *pqs || *all {
 		pqsTest(msgCount, *pause, *qSize, *profile)
 	}
+	runtime.GC()
 	if *pqsl || *all {
 		pqslTest(msgCount, *pause, *qSize, *profile)
 	}

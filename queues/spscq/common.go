@@ -12,7 +12,6 @@ import (
 	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
-	"github.com/fmstephe/flib/ftime"
 )
 
 const maxSize = 1 << 41
@@ -45,22 +44,6 @@ func newCommonQ(size, pause int64) (commonQ, error) {
 	return commonQ{size: size, mask: size - 1, pause: pause}, nil
 }
 
-func (q *commonQ) acquireWrite(bufferSize int64) (from int64, to int64) {
-	writeTo := q.write.Value + bufferSize
-	readLimit := writeTo - q.size
-	if readLimit > q.readCache.Value {
-		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
-		if readLimit > q.readCache.Value {
-			q.failedWrites.Value++
-			ftime.Pause(q.pause)
-			return 0, 0
-		}
-	}
-	from = q.write.Value & q.mask
-	to = fmath.Min(from+bufferSize, q.size)
-	return from, to
-}
-
 func (q *commonQ) ReleaseWrite() {
 	atomic.AddInt64(&q.write.Value, q.writeSize.Value)
 	q.writeSize.Value = 0
@@ -69,24 +52,6 @@ func (q *commonQ) ReleaseWrite() {
 func (q *commonQ) ReleaseWriteLazy() {
 	fatomic.LazyStore(&q.write.Value, q.write.Value+q.writeSize.Value)
 	q.writeSize.Value = 0
-}
-
-func (q *commonQ) acquireRead(bufferSize int64) (from int64, to int64) {
-	readTo := q.read.Value + bufferSize
-	if readTo > q.writeCache.Value {
-		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
-		if readTo > q.writeCache.Value {
-			bufferSize = q.writeCache.Value - q.read.Value
-			if bufferSize == 0 {
-				q.failedReads.Value++
-				ftime.Pause(q.pause)
-				return 0, 0
-			}
-		}
-	}
-	from = q.read.Value & q.mask
-	to = fmath.Min(from+bufferSize, q.size)
-	return from, to
 }
 
 func (q *commonQ) ReleaseRead() {

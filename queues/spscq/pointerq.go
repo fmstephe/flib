@@ -8,15 +8,20 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 	"github.com/fmstephe/flib/ftime"
 )
 
 type PointerQueue interface {
-	// Simple Read/Write
-	Read([]unsafe.Pointer) []unsafe.Pointer
-	Write([]unsafe.Pointer) bool
+	// Batch Read/Write
+	AcquireRead(int64) []unsafe.Pointer
+	ReleaseRead()
+	ReleaseReadLazy()
+	AcquireWrite(int64) []unsafe.Pointer
+	ReleaseWrite()
+	ReleaseWriteLazy()
 	// Single Read/Write
 	ReadSingle() unsafe.Pointer
 	WriteSingle(unsafe.Pointer) bool
@@ -47,26 +52,40 @@ func NewPointerQ(size, pause int64) (*PointerQ, error) {
 	return &PointerQ{ringBuffer: ringBuffer, commonQ: cq}, nil
 }
 
-func (q *PointerQ) Read(buffer []unsafe.Pointer) []unsafe.Pointer {
-	from, to := q.acquireRead(int64(len(buffer)))
-	bufferSize := to - from
-	if bufferSize == 0 {
-		return nil
+func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
+	readTo := q.read.Value + bufferSize
+	if readTo > q.writeCache.Value {
+		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
+		if readTo > q.writeCache.Value {
+			bufferSize = q.writeCache.Value - q.read.Value
+			if bufferSize == 0 {
+				q.failedReads.Value++
+				ftime.Pause(q.pause)
+				return nil
+			}
+		}
 	}
-	copy(buffer, q.ringBuffer[from:to])
-	atomic.AddInt64(&q.read.Value, bufferSize)
-	return buffer[:bufferSize]
+	from := q.read.Value & q.mask
+	to := fmath.Min(from+bufferSize, q.size)
+	q.readSize.Value = to - from
+	return q.ringBuffer[from:to]
 }
 
-func (q *PointerQ) Write(buffer []unsafe.Pointer) bool {
-	bufferSize := int64(len(buffer))
-	from, to := q.acquireWrite(bufferSize)
-	if to == 0 {
-		return false
+func (q *PointerQ) AcquireWrite(bufferSize int64) []unsafe.Pointer {
+	writeTo := q.write.Value + bufferSize
+	readLimit := writeTo - q.size
+	if readLimit > q.readCache.Value {
+		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
+		if readLimit > q.readCache.Value {
+			q.failedWrites.Value++
+			ftime.Pause(q.pause)
+			return nil
+		}
 	}
-	copy(q.ringBuffer[from:to], buffer)
-	atomic.AddInt64(&q.write.Value, bufferSize)
-	return true
+	from := q.write.Value & q.mask
+	to := fmath.Min(from+bufferSize, q.size)
+	q.writeSize.Value = to - from
+	return q.ringBuffer[from:to]
 }
 
 func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
