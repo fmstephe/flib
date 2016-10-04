@@ -13,9 +13,9 @@ import (
 )
 
 type PointerQueue interface {
-	// Single Read/Write
-	ReadSingle() unsafe.Pointer
-	WriteSingle(unsafe.Pointer) bool
+	// SingleBlocking Read/Write
+	ReadSingleBlocking() unsafe.Pointer
+	WriteSingleBlocking(unsafe.Pointer)
 }
 
 func NewPointerQueue(size, pause int64) (PointerQueue, error) {
@@ -39,42 +39,28 @@ func NewPointerQ(size, pause int64) (*PointerQ, error) {
 	return &PointerQ{ringBuffer: ringBuffer, commonQ: cq}, nil
 }
 
-func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
+func (q *PointerQ) WriteSingleBlocking(val unsafe.Pointer) {
 	for {
 		write := atomic.LoadInt64(&q.write.Value)
-		readLimit := write - q.size
-		if readLimit == atomic.LoadInt64(&q.readCache.Value) {
-			readCache := atomic.LoadInt64(&q.read.Value)
-			if !atomic.CompareAndSwapInt64(&q.readCache.Value, q.readCache.Value, readCache) {
-				ftime.Pause(q.pause)
-				continue
-			}
-			if readLimit == q.readCache.Value {
-				q.failedWrites.Value++
-				ftime.Pause(q.pause)
-				return false
-			}
-		}
 		if atomic.CompareAndSwapPointer(&q.ringBuffer[write&q.mask], nil, val) {
 			atomic.AddInt64(&q.write.Value, 1)
-			return true
+			return
 		}
 		ftime.Pause(q.pause)
 	}
 }
 
-func (q *PointerQ) ReadSingle() unsafe.Pointer {
+func (q *PointerQ) ReadSingleBlocking() unsafe.Pointer {
 	read := q.read.Value
-	if read == q.writeCache.Value {
-		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
-		if read == q.writeCache.Value {
+	for {
+		val := atomic.LoadPointer(&q.ringBuffer[read&q.mask])
+		if val != nil {
+			atomic.StorePointer(&q.ringBuffer[read&q.mask], nil)
+			q.read.Value++
+			return val
+		} else {
 			q.failedReads.Value++
 			ftime.Pause(q.pause)
-			return nil
 		}
 	}
-	val := q.ringBuffer[read&q.mask]
-	q.ringBuffer[read&q.mask] = nil
-	atomic.AddInt64(&q.read.Value, 1)
-	return val
 }

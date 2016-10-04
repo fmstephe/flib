@@ -34,13 +34,8 @@ func pqsTest(msgCount, pause, qSize int64, profile bool) {
 
 func pqsEnqueue(msgCount int64, q *mpscq.PointerQ, ptrs []unsafe.Pointer, done chan bool) {
 	runtime.LockOSThread()
-	t := 1
 	for _, ptr := range ptrs {
-		w := q.WriteSingle(ptr)
-		for w == false {
-			w = q.WriteSingle(ptr)
-		}
-		t++
+		q.WriteSingleBlocking(ptr)
 	}
 	done <- true
 }
@@ -49,12 +44,8 @@ func pqsDequeue(msgCount int64, q *mpscq.PointerQ, checksum int64, done chan boo
 	runtime.LockOSThread()
 	start := time.Now().UnixNano()
 	sum := int64(0)
-	var v unsafe.Pointer
 	for i := int64(1); i <= msgCount; i++ {
-		v = q.ReadSingle()
-		for v == nil {
-			v = q.ReadSingle()
-		}
+		v := q.ReadSingleBlocking()
 		sum += int64(uintptr(v))
 	}
 	nanos := time.Now().UnixNano() - start
