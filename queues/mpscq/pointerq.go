@@ -40,11 +40,17 @@ func NewPointerQ(size, pause int64) (*PointerQ, error) {
 }
 
 func (q *PointerQ) WriteSingleBlocking(val unsafe.Pointer) {
+	first := false
 	for {
 		write := atomic.LoadInt64(&q.write.Value)
 		if atomic.CompareAndSwapPointer(&q.ringBuffer[write&q.mask], nil, val) {
+			println("Success", write)
 			atomic.AddInt64(&q.write.Value, 1)
 			return
+		}
+		if !first {
+			println("Failed", q.ringBuffer[write&q.mask], atomic.LoadInt64(&q.write.Value))
+			first = true
 		}
 		ftime.Pause(q.pause)
 	}
@@ -57,6 +63,7 @@ func (q *PointerQ) ReadSingleBlocking() unsafe.Pointer {
 		if val != nil {
 			atomic.StorePointer(&q.ringBuffer[read&q.mask], nil)
 			q.read.Value++
+			println("read", q.read.Value)
 			return val
 		} else {
 			q.failedReads.Value++

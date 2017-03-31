@@ -14,7 +14,7 @@ import (
 	"github.com/fmstephe/flib/queues/mpscq"
 )
 
-func pqsTest(msgCount, pause, qSize int64, profile bool) {
+func pqsTest(msgCount, pause, qSize, producerNum int64, profile bool) {
 	ptrs, checksum := getValidPointers(msgCount)
 	q, _ := mpscq.NewPointerQ(qSize, pause)
 	done := make(chan bool)
@@ -26,10 +26,14 @@ func pqsTest(msgCount, pause, qSize int64, profile bool) {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	go pqsDequeue(msgCount, q, checksum, done)
-	go pqsEnqueue(msgCount, q, ptrs, done)
-	<-done
-	<-done
+	go pqsDequeue(msgCount*producerNum, q, checksum*producerNum, done)
+	for i := int64(0); i < producerNum; i++ {
+		go pqsEnqueue(msgCount, q, ptrs, done)
+	}
+	for i := int64(0); i < producerNum+1; i++ {
+		<-done
+		println("done", i)
+	}
 }
 
 func pqsEnqueue(msgCount int64, q *mpscq.PointerQ, ptrs []unsafe.Pointer, done chan bool) {

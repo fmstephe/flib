@@ -23,15 +23,16 @@ var (
 	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue's ring-buffer")
 	pause       = flag.Int64("pause", 20*1000, "The size of the pause when a read or write fails")
 	profile     = flag.Bool("profile", false, "Activates the Go profiler, outputting into a prof_* file.")
+	producerNum = flag.Int64("pNum", 2, "The number of producers")
 )
 
 func main() {
 	runtime.GOMAXPROCS(4)
 	flag.Parse()
-	msgCount := (*millionMsgs) * 1e6
+	msgCount := (*millionMsgs) * 1 //e6
 	debug.SetGCPercent(-1)
 	if *pqs || *all {
-		pqsTest(msgCount, *pause, *qSize, *profile)
+		pqsTest(msgCount, *pause, *qSize, *producerNum, *profile)
 	}
 	runtime.GC()
 }
