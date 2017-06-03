@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/padded"
 	"github.com/fmstephe/flib/ftime"
 )
@@ -68,6 +67,23 @@ func (q *ByteMsgQ) AcquireWrite(bufferSize int64) []byte {
 	return q.ringBuffer[from+headerSize : to]
 }
 
+func (q *ByteMsgQ) msgWrite(bufferSize int64) (from int64, to int64) {
+	writeTo := q.write.Value + bufferSize
+	readLimit := writeTo - q.size
+	if readLimit > q.readCache.Value {
+		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
+		if readLimit > q.readCache.Value {
+			q.failedWrites.Value++
+			ftime.Pause(q.pause)
+			return 0, 0
+		}
+	}
+	from = q.write.Value & q.mask
+	to = from + bufferSize
+	q.writeSize.Value = bufferSize
+	return from, to
+}
+
 func (q *ByteMsgQ) AcquireRead() []byte {
 	rem := q.size - (q.read.Value & q.mask)
 	if rem < headerSize {
@@ -87,23 +103,6 @@ func (q *ByteMsgQ) AcquireRead() []byte {
 	return q.ringBuffer[from+headerSize : to]
 }
 
-func (q *ByteMsgQ) msgWrite(bufferSize int64) (from int64, to int64) {
-	writeTo := q.write.Value + bufferSize
-	readLimit := writeTo - q.size
-	if readLimit > q.readCache.Value {
-		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
-		if readLimit > q.readCache.Value {
-			q.failedWrites.Value++
-			ftime.Pause(q.pause)
-			return 0, 0
-		}
-	}
-	from = q.write.Value & q.mask
-	to = fmath.Min(from+bufferSize, q.size)
-	q.writeSize.Value = bufferSize
-	return from, to
-}
-
 func (q *ByteMsgQ) msgRead(bufferSize int64) (from int64, to int64) {
 	readTo := q.read.Value + bufferSize
 	if readTo > q.writeCache.Value {
@@ -115,7 +114,7 @@ func (q *ByteMsgQ) msgRead(bufferSize int64) (from int64, to int64) {
 		}
 	}
 	from = q.read.Value & q.mask
-	to = fmath.Min(from+bufferSize, q.size)
+	to = from + bufferSize
 	q.readSize.Value = bufferSize
 	return from, to
 }
