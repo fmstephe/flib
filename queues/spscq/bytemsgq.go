@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/padded"
 	"github.com/fmstephe/flib/ftime"
 )
@@ -99,7 +98,7 @@ func (q *ByteMsgQ) msgWrite(bufferSize int64) (from int64, to int64) {
 		}
 	}
 	from = q.write.Value & q.mask
-	to = fmath.Min(from+bufferSize, q.size)
+	to = from + bufferSize
 	q.writeSize.Value = bufferSize
 	return from, to
 }
@@ -115,7 +114,7 @@ func (q *ByteMsgQ) msgRead(bufferSize int64) (from int64, to int64) {
 		}
 	}
 	from = q.read.Value & q.mask
-	to = fmath.Min(from+bufferSize, q.size)
+	to = from + bufferSize
 	q.readSize.Value = bufferSize
 	return from, to
 }
