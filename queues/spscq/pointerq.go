@@ -71,6 +71,26 @@ func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
 	return q.ringBuffer[from:to]
 }
 
+func (q *PointerQ) ReleaseRead() {
+	from := q.read.Value & q.mask
+	to := from + q.readSize.Value
+	for i := from; i < to; i++ {
+		q.ringBuffer[i] = nil
+	}
+	atomic.AddInt64(&q.read.Value, q.readSize.Value)
+	q.readSize.Value = 0
+}
+
+func (q *PointerQ) ReleaseReadLazy() {
+	from := q.read.Value & q.mask
+	to := from + q.readSize.Value
+	for i := from; i < to; i++ {
+		q.ringBuffer[i] = nil
+	}
+	fatomic.LazyStore(&q.read.Value, q.read.Value+q.readSize.Value)
+	q.readSize.Value = 0
+}
+
 func (q *PointerQ) AcquireWrite(bufferSize int64) []unsafe.Pointer {
 	writeTo := q.write.Value + bufferSize
 	readLimit := writeTo - q.size
@@ -86,6 +106,16 @@ func (q *PointerQ) AcquireWrite(bufferSize int64) []unsafe.Pointer {
 	to := fmath.Min(from+bufferSize, q.size)
 	q.writeSize.Value = to - from
 	return q.ringBuffer[from:to]
+}
+
+func (q *PointerQ) ReleaseWrite() {
+	atomic.AddInt64(&q.write.Value, q.writeSize.Value)
+	q.writeSize.Value = 0
+}
+
+func (q *PointerQ) ReleaseWriteLazy() {
+	fatomic.LazyStore(&q.write.Value, q.write.Value+q.writeSize.Value)
+	q.writeSize.Value = 0
 }
 
 func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
@@ -161,5 +191,6 @@ func (q *PointerQ) readSingle() unsafe.Pointer {
 		}
 	}
 	val := q.ringBuffer[read&q.mask]
+	q.ringBuffer[read&q.mask] = nil
 	return val
 }
