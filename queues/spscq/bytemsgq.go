@@ -67,6 +67,14 @@ func (q *ByteMsgQ) AcquireWrite(bufferSize int64) []byte {
 	return q.ringBuffer[from+headerSize : to]
 }
 
+func (q *ByteMsgQ) ReleaseWrite() {
+	q.releaseStoredWrite()
+}
+
+func (q *ByteMsgQ) ReleaseWriteLazy() {
+	q.releaseStoredWriteLazy()
+}
+
 func (q *ByteMsgQ) AcquireRead() []byte {
 	rem := q.size - (q.read.Value & q.mask)
 	if rem < headerSize {
@@ -84,6 +92,14 @@ func (q *ByteMsgQ) AcquireRead() []byte {
 		return nil
 	}
 	return q.ringBuffer[from+headerSize : to]
+}
+
+func (q *ByteMsgQ) ReleaseRead() {
+	q.releaseStoredRead()
+}
+
+func (q *ByteMsgQ) ReleaseReadLazy() {
+	q.releaseStoredReadLazy()
 }
 
 func (q *ByteMsgQ) msgWrite(bufferSize int64) (from int64, to int64) {

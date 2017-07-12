@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/fmstephe/flib/fmath"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 	"github.com/fmstephe/flib/ftime"
@@ -53,21 +52,7 @@ func NewPointerQ(size, pause int64) (*PointerQ, error) {
 }
 
 func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
-	readTo := q.read.Value + bufferSize
-	if readTo > q.writeCache.Value {
-		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
-		if readTo > q.writeCache.Value {
-			bufferSize = q.writeCache.Value - q.read.Value
-			if bufferSize == 0 {
-				q.failedReads.Value++
-				ftime.Pause(q.pause)
-				return nil
-			}
-		}
-	}
-	from := q.read.Value & q.mask
-	to := fmath.Min(from+bufferSize, q.size)
-	q.readSize.Value = to - from
+	from, to := q.acquireRead(bufferSize)
 	return q.ringBuffer[from:to]
 }
 
@@ -77,8 +62,7 @@ func (q *PointerQ) ReleaseRead() {
 	for i := from; i < to; i++ {
 		q.ringBuffer[i] = nil
 	}
-	atomic.AddInt64(&q.read.Value, q.readSize.Value)
-	q.readSize.Value = 0
+	q.releaseStoredRead()
 }
 
 func (q *PointerQ) ReleaseReadLazy() {
@@ -87,35 +71,20 @@ func (q *PointerQ) ReleaseReadLazy() {
 	for i := from; i < to; i++ {
 		q.ringBuffer[i] = nil
 	}
-	fatomic.LazyStore(&q.read.Value, q.read.Value+q.readSize.Value)
-	q.readSize.Value = 0
+	q.releaseStoredReadLazy()
 }
 
 func (q *PointerQ) AcquireWrite(bufferSize int64) []unsafe.Pointer {
-	writeTo := q.write.Value + bufferSize
-	readLimit := writeTo - q.size
-	if readLimit > q.readCache.Value {
-		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
-		if readLimit > q.readCache.Value {
-			q.failedWrites.Value++
-			ftime.Pause(q.pause)
-			return nil
-		}
-	}
-	from := q.write.Value & q.mask
-	to := fmath.Min(from+bufferSize, q.size)
-	q.writeSize.Value = to - from
+	from, to := q.acquireWrite(bufferSize)
 	return q.ringBuffer[from:to]
 }
 
 func (q *PointerQ) ReleaseWrite() {
-	atomic.AddInt64(&q.write.Value, q.writeSize.Value)
-	q.writeSize.Value = 0
+	q.releaseStoredWrite()
 }
 
 func (q *PointerQ) ReleaseWriteLazy() {
-	fatomic.LazyStore(&q.write.Value, q.write.Value+q.writeSize.Value)
-	q.writeSize.Value = 0
+	q.releaseStoredWriteLazy()
 }
 
 func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {

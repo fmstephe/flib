@@ -26,15 +26,11 @@ func TestNewCommonQPowerOf2(t *testing.T) {
 func TestNewCommonQNotPowerOf2(t *testing.T) {
 	for size := int64(1); size < 10*1000; size++ {
 		if !fmath.PowerOfTwo(size) {
-			makeBadQ(size, t)
+			_, err := newCommonQ(size, 0)
+			if err == nil {
+				t.Errorf("No error detected for size %d", size)
+			}
 		}
-	}
-}
-
-func makeBadQ(size int64, t *testing.T) {
-	_, err := newCommonQ(size, 0)
-	if err == nil {
-		t.Errorf("No error detected for size %d", size)
 	}
 }
 
@@ -105,7 +101,7 @@ func testAcquireWrite(writeBufferSize, from, to int64, cq, snap *commonQ) error 
 	return nil
 }
 
-func testReleaseWrite(cq, snap *commonQ) error {
+func testReleaseStoredWrite(cq, snap *commonQ) error {
 	if cq.writeSize.Value != 0 {
 		return errors.New(fmt.Sprintf("cq.writeSize was not reset to 0, %d found instead", cq.writeSize.Value))
 	}
@@ -147,7 +143,7 @@ func testAcquireRead(readBufferSize, from, to int64, cq, snap *commonQ) error {
 	return nil
 }
 
-func testReleaseRead(cq, snap *commonQ) error {
+func testReleaseStoredRead(cq, snap *commonQ) error {
 	if cq.readSize.Value != 0 {
 		return errors.New(fmt.Sprintf("cq.readSize was not reset to 0, %d found instead", cq.readSize.Value))
 	}
@@ -197,8 +193,8 @@ func testSequentialReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 			return
 		}
 		snap = copyForWrite(cq)
-		cq.ReleaseWrite()
-		if err := testReleaseWrite(cq, snap); err != nil {
+		cq.releaseStoredWrite()
+		if err := testReleaseStoredWrite(cq, snap); err != nil {
 			t.Error(err.Error())
 			return
 		}
@@ -210,8 +206,8 @@ func testSequentialReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 			return
 		}
 		snap = copyForRead(cq)
-		cq.ReleaseRead()
-		if err := testReleaseRead(cq, snap); err != nil {
+		cq.releaseStoredRead()
+		if err := testReleaseStoredRead(cq, snap); err != nil {
 			t.Error(err.Error())
 			return
 		}
@@ -262,8 +258,8 @@ func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 				return
 			}
 			snap = copyForWrite(cq)
-			cq.ReleaseWrite()
-			if err := testReleaseWrite(cq, snap); err != nil {
+			cq.releaseStoredWrite()
+			if err := testReleaseStoredWrite(cq, snap); err != nil {
 				t.Error(err.Error())
 				return
 			}
@@ -283,8 +279,8 @@ func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 				return
 			}
 			snap = copyForRead(cq)
-			cq.ReleaseRead()
-			if err := testReleaseRead(cq, snap); err != nil {
+			cq.releaseStoredRead()
+			if err := testReleaseStoredRead(cq, snap); err != nil {
 				t.Error(err.Error())
 				return
 			}
