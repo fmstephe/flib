@@ -70,85 +70,92 @@ func copyForWrite(cq *commonQ) *commonQ {
 	return snap
 }
 
-func testAcquireWrite(writeBufferSize, from, to int64, cq, snap *commonQ) error {
+func testAcquireWrite(writeBufferSize, from, to int64, before, after *commonQ) error {
+	if before.size != after.size {
+		return fmt.Errorf("before.size (%d) does not equal after.size (%d)", before.size, after.size)
+	}
+	qSize := before.size
+	if from >= qSize || from < 0 {
+		return fmt.Errorf("from (%d) must be a valid index for an array of size %d", from, qSize)
+	}
+	if to > qSize || to < 0 {
+		return fmt.Errorf("to (%d) must be a valid index for an array of size %d", to, qSize)
+	}
+	if from > to {
+		return fmt.Errorf("from (%d) is greater than to (%d)", from, to)
+	}
 	actualWriteSize := to - from
-	if actualWriteSize == 0 && cq.failedWrites.Value != snap.failedWrites.Value+1 {
-		return errors.New(fmt.Sprintf("failedWrites not incremented. Expected %d, found %d", snap.failedWrites.Value+1, cq.failedWrites.Value))
+	if actualWriteSize != after.writeSize.Value {
+		return fmt.Errorf("actual write size (%d) does not equal after.writeSize (%d)", actualWriteSize, after.writeSize.Value)
+	}
+	if actualWriteSize == 0 && before.failedWrites.Value+1 != after.failedWrites.Value {
+		return fmt.Errorf("failedWrites not incremented. Expected %d, found %d", before.failedWrites.Value+1, after.failedWrites.Value)
 	}
 	if actualWriteSize > writeBufferSize {
-		return errors.New(fmt.Sprintf("Actual write size (%d) larger than requested buffer size (%d)", actualWriteSize, writeBufferSize))
+		return fmt.Errorf("Actual write size (%d) larger than requested buffer size (%d)", actualWriteSize, writeBufferSize)
 	}
-	if (actualWriteSize < writeBufferSize) && (cq.write.Value+actualWriteSize) != (cq.readCache.Value+cq.size) {
-		if (cq.write.Value+cq.writeSize.Value)%cq.size != 0 {
-			return errors.New(fmt.Sprintf("Actual write size (%d) could have been bigger.\nsnap %s\ncq  %s", actualWriteSize, snap.String(), cq.String()))
-		}
+	if (actualWriteSize < writeBufferSize) && // Actual write smaller than asked for
+		((before.write.Value + actualWriteSize) != (after.readCache.Value + qSize)) && // Actual write not pushing up against read
+		((before.write.Value+actualWriteSize)&before.mask != 0) { // Actual write not pushing against physical end of queue
+		return fmt.Errorf("Actual write size (%d) could have been bigger.\nbefore %s\nafter  %s", actualWriteSize, before.writeString(), after.writeString())
 	}
-	if (cq.write.Value + actualWriteSize) > (cq.readCache.Value + cq.size) {
-		return errors.New(fmt.Sprintf("Actual write size (%d) overwrites unread data.\ncq %s", actualWriteSize, cq.String()))
+	if (after.write.Value + actualWriteSize) > (after.readCache.Value + qSize) {
+		return fmt.Errorf("Actual write size (%d) overwrites potentially unread data.\nafter %s", actualWriteSize, after.writeString())
 	}
-	if cq.writeSize.Value != actualWriteSize {
-		return errors.New(fmt.Sprintf("cq.writeSize (%d) does not equal actual write size (%d)", cq.writeSize.Value, actualWriteSize))
+	return nil
+}
+
+func testReleaseStoredWrite(before, after *commonQ) error {
+	if after.writeSize.Value != 0 {
+		return errors.New(fmt.Sprintf("after.writeSize was not reset to 0, %d found instead", after.writeSize.Value))
 	}
+	if after.write.Value != before.write.Value+before.writeSize.Value {
+		return errors.New(fmt.Sprintf("write has not been advanced by the correct amount.\nbefore %s\nafter  %s", before, after))
+	}
+	return nil
+}
+
+func testAcquireRead(readBufferSize, from, to int64, before, after *commonQ) error {
+	if before.size != after.size {
+		return fmt.Errorf("before.size (%d) does not equal after.size (%d)", before.size, after.size)
+	}
+	qSize := before.size
 	if from > to {
 		return errors.New(fmt.Sprintf("from (%d) is greater than to (%d)", from, to))
 	}
-	if from >= cq.size || from < 0 {
-		return errors.New(fmt.Sprintf("from (%d) must be a valid index for an array of size %d", from, cq.size))
+	if from >= qSize || from < 0 {
+		return errors.New(fmt.Sprintf("from (%d) must be a valid index for an array of size %d", from, qSize))
 	}
-	if to > cq.size || to < 0 {
-		return errors.New(fmt.Sprintf("to (%d) must be a valid index for an array of size %d", to, cq.size))
+	if to > qSize || to < 0 {
+		return errors.New(fmt.Sprintf("to (%d) must be a valid index for an array of size %d", to, qSize))
 	}
-	return nil
-}
-
-func testReleaseStoredWrite(cq, snap *commonQ) error {
-	if cq.writeSize.Value != 0 {
-		return errors.New(fmt.Sprintf("cq.writeSize was not reset to 0, %d found instead", cq.writeSize.Value))
-	}
-	if cq.write.Value != snap.write.Value+snap.writeSize.Value {
-		return errors.New(fmt.Sprintf("write has not been advanced by the correct amount.\nsnap %s\ncq  %s", snap.String(), cq.String()))
-	}
-	return nil
-}
-
-func testAcquireRead(readBufferSize, from, to int64, cq, snap *commonQ) error {
 	actualReadSize := to - from
-	if actualReadSize == 0 && cq.failedReads.Value != snap.failedReads.Value+1 {
-		return errors.New(fmt.Sprintf("failedReads not incremented. Expected %d, found %d", snap.failedReads.Value+1, cq.failedReads.Value))
+	if after.readSize.Value != actualReadSize {
+		return errors.New(fmt.Sprintf("after.readSize (%d) does not equal actual read size (%d)", after.readSize.Value, actualReadSize))
+	}
+	if actualReadSize == 0 && before.failedReads.Value+1 != after.failedReads.Value {
+		return errors.New(fmt.Sprintf("failedReads not incremented. Expected %d, found %d", before.failedReads.Value+1, after.failedReads.Value))
 	}
 	if actualReadSize > readBufferSize {
 		return errors.New(fmt.Sprintf("Actual read size (%d) larger than requested buffer size (%d)", actualReadSize, readBufferSize))
 	}
-	if (actualReadSize < readBufferSize) && (cq.read.Value+actualReadSize) != (cq.writeCache.Value) {
-		if (cq.read.Value+cq.readSize.Value)%cq.size != 0 {
-			return errors.New(fmt.Sprintf("Actual read size (%d) could have been bigger.\nsnap %s\ncq  %s", actualReadSize, snap.String(), cq.String()))
-		}
+	if (actualReadSize < readBufferSize) && // Actual read smaller than asked for
+		((before.read.Value + actualReadSize) != (after.writeCache.Value)) && // Actual read not pushing up against write
+		((before.read.Value+actualReadSize)&before.mask != 0) { // Actual read not pushing against physical end of queue
+		return errors.New(fmt.Sprintf("Actual read size (%d) could have been bigger.\nbefore %s\nafter  %s", actualReadSize, before.readString(), after.readString()))
 	}
-	if (cq.read.Value + actualReadSize) > cq.writeCache.Value {
-		return errors.New(fmt.Sprintf("Actual read size (%d) reads past write position (%d).\ncq %s", actualReadSize, cq.write.Value, cq.String()))
-	}
-	if cq.readSize.Value != actualReadSize {
-
-		return errors.New(fmt.Sprintf("cq.readSize (%d) does not equal actual read size (%d)", cq.readSize.Value, actualReadSize))
-	}
-	if from > to {
-		return errors.New(fmt.Sprintf("from (%d) is greater than to (%d)", from, to))
-	}
-	if from >= cq.size || from < 0 {
-		return errors.New(fmt.Sprintf("from (%d) must be a valid index for an array of size %d", from, cq.size))
-	}
-	if to > cq.size || to < 0 {
-		return errors.New(fmt.Sprintf("to (%d) must be a valid index for an array of size %d", to, cq.size))
+	if (after.read.Value + actualReadSize) > after.writeCache.Value {
+		return errors.New(fmt.Sprintf("Actual read size (%d) reads past write position (%d).\nafter %s", actualReadSize, after.write.Value, after.readString()))
 	}
 	return nil
 }
 
-func testReleaseStoredRead(cq, snap *commonQ) error {
-	if cq.readSize.Value != 0 {
-		return errors.New(fmt.Sprintf("cq.readSize was not reset to 0, %d found instead", cq.readSize.Value))
+func testReleaseStoredRead(before, after *commonQ) error {
+	if after.readSize.Value != 0 {
+		return errors.New(fmt.Sprintf("after.readSize was not reset to 0, %d found instead", after.readSize.Value))
 	}
-	if cq.read.Value != snap.read.Value+snap.readSize.Value {
-		return errors.New(fmt.Sprintf("read has not been advanced by the correct amount.\nsnap %s\ncq   %s", snap.String(), cq.String()))
+	if after.read.Value != before.read.Value+before.readSize.Value {
+		return errors.New(fmt.Sprintf("read has not been advanced by the correct amount.\nbefore %s\nafter   %s", before, after))
 	}
 	return nil
 }
@@ -186,28 +193,32 @@ func testSequentialReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 	cq := &cqs
 	for j := int64(0); j < iterations; j++ {
 		// write
-		snap := copyForWrite(cq)
+		beforeAcquireWrite := copyForWrite(cq)
 		wfrom, wto := cq.acquireWrite(writeSize)
-		if err := testAcquireWrite(writeSize, wfrom, wto, cq, snap); err != nil {
+		afterAcquireWrite := copyForWrite(cq)
+		if err := testAcquireWrite(writeSize, wfrom, wto, beforeAcquireWrite, afterAcquireWrite); err != nil {
 			t.Error(err.Error())
 			return
 		}
-		snap = copyForWrite(cq)
+		beforeReleaseWrite := copyForWrite(cq)
 		cq.releaseStoredWrite()
-		if err := testReleaseStoredWrite(cq, snap); err != nil {
+		afterReleaseWrite := copyForWrite(cq)
+		if err := testReleaseStoredWrite(beforeReleaseWrite, afterReleaseWrite); err != nil {
 			t.Error(err.Error())
 			return
 		}
 		// read
-		snap = copyForRead(cq)
+		beforeAcquireRead := copyForRead(cq)
 		rfrom, rto := cq.acquireRead(readSize)
-		if err := testAcquireRead(readSize, rfrom, rto, cq, snap); err != nil {
+		afterAcquireRead := copyForRead(cq)
+		if err := testAcquireRead(readSize, rfrom, rto, beforeAcquireRead, afterAcquireRead); err != nil {
 			t.Error(err.Error())
 			return
 		}
-		snap = copyForRead(cq)
+		beforeReleaseRead := copyForRead(cq)
 		cq.releaseStoredRead()
-		if err := testReleaseStoredRead(cq, snap); err != nil {
+		afterReleaseRead := copyForRead(cq)
+		if err := testReleaseStoredRead(beforeReleaseRead, afterReleaseRead); err != nil {
 			t.Error(err.Error())
 			return
 		}
@@ -251,16 +262,20 @@ func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 			end <- true
 		}()
 		for i := int64(0); i < iterations*writeSize; {
-			snap := copyForWrite(cq)
+			before := copyForWrite(cq)
 			wfrom, wto := cq.acquireWrite(writeSize)
-			if err := testAcquireWrite(writeSize, wfrom, wto, cq, snap); err != nil {
+			after := copyForWrite(cq)
+			if err := testAcquireWrite(writeSize, wfrom, wto, before, after); err != nil {
 				t.Error(err.Error())
+				end <- true
 				return
 			}
-			snap = copyForWrite(cq)
+			before = copyForWrite(cq)
 			cq.releaseStoredWrite()
-			if err := testReleaseStoredWrite(cq, snap); err != nil {
+			after = copyForWrite(cq)
+			if err := testReleaseStoredWrite(before, after); err != nil {
 				t.Error(err.Error())
+				end <- true
 				return
 			}
 			i += (wto - wfrom)
@@ -272,16 +287,20 @@ func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 			end <- true
 		}()
 		for i := int64(0); i < iterations*writeSize; {
-			snap := copyForRead(cq)
+			before := copyForRead(cq)
 			rfrom, rto := cq.acquireRead(readSize)
-			if err := testAcquireRead(readSize, rfrom, rto, cq, snap); err != nil {
+			after := copyForRead(cq)
+			if err := testAcquireRead(readSize, rfrom, rto, before, after); err != nil {
 				t.Error(err.Error())
+				end <- true
 				return
 			}
-			snap = copyForRead(cq)
+			before = copyForRead(cq)
 			cq.releaseStoredRead()
-			if err := testReleaseStoredRead(cq, snap); err != nil {
+			after = copyForRead(cq)
+			if err := testReleaseStoredRead(before, after); err != nil {
 				t.Error(err.Error())
+				end <- true
 				return
 			}
 			i += (rto - rfrom)

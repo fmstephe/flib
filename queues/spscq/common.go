@@ -125,5 +125,25 @@ func (q *commonQ) String() string {
 	readSize := q.readSize.Value
 	failedReads := q.failedReads.Value
 	writeCache := q.writeCache.Value
-	return fmt.Sprintf("{Size %d, mask %d, write %d, writeSize %d, failedWrites %d, readCache %d, read %d, readSize %d, failedReads %d, writeCache %d}", size, mask, write, writeSize, failedWrites, readCache, read, readSize, failedReads, writeCache)
+	return fmt.Sprintf("{size %d, mask %d, write %d(%d), writeSize %d, failedWrites %d, readCache %d(%d), read %d(%d), readSize %d, failedReads %d, writeCache %d}", size, mask, write, write&mask, writeSize, failedWrites, readCache, readCache&mask, read, read&mask, readSize, failedReads, writeCache)
+}
+
+func (q *commonQ) readString() string {
+	size := q.size
+	mask := q.mask
+	read := q.read.Value
+	readSize := q.readSize.Value
+	failedReads := q.failedReads.Value
+	writeCache := q.writeCache.Value
+	return fmt.Sprintf("{read: size %d, mask %d, read %d(%d), readSize %d, failedReads %d, writeCache %d(%d)}", size, mask, read, read&mask, readSize, failedReads, writeCache, read&mask)
+}
+
+func (q *commonQ) writeString() string {
+	size := q.size
+	mask := q.mask
+	write := q.write.Value
+	writeSize := q.writeSize.Value
+	failedWrites := q.failedWrites.Value
+	readCache := q.readCache.Value
+	return fmt.Sprintf("{write: size %d, mask %d, write %d(%d), writeSize %d, failedWrites %d, readCache %d(%d)}", size, mask, write, write&mask, writeSize, failedWrites, readCache, readCache&mask)
 }
