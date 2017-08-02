@@ -31,7 +31,7 @@ var (
 	pqsl      = flag.Bool("pqsl", false, "Runs PointerQ lazily reading and writing a pointer at a time")
 	batchSize = flag.Int64("batchSize", 64, "The size of the read/write batches used by PointerQ")
 	// Addtional flags
-	millionMsgs = flag.Int64("mm", 10, "The number of messages (in millions) to send")
+	millionMsgs = flag.Int64("mm", 100, "The number of messages (in millions) to send")
 	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue's ring-buffer")
 	pause       = flag.Int64("pause", 20*1000, "The size of the pause when a read or write fails")
 	profile     = flag.Bool("profile", false, "Activates the Go profiler, outputting into a prof_* file.")
