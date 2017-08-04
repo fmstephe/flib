@@ -77,14 +77,17 @@ func (q *commonQ) releaseStoredReadLazy() {
 }
 
 func (q *commonQ) acquireWrite(bufferSize int64) (from, to int64) {
-	writeTo := q.write.Value + bufferSize
-	readLimit := writeTo - q.size
-	if readLimit > q.readCache.Value {
+	offsetWrite := q.write.Value - q.size
+	offsetWriteTo := offsetWrite + bufferSize
+	if offsetWriteTo > q.readCache.Value {
 		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
-		if readLimit > q.readCache.Value {
-			q.failedWrites.Value++
-			ftime.Pause(q.pause)
-			return 0, 0
+		if offsetWriteTo > q.readCache.Value {
+			bufferSize = q.readCache.Value - offsetWrite
+			if bufferSize == 0 {
+				q.failedWrites.Value++
+				ftime.Pause(q.pause)
+				return 0, 0
+			}
 		}
 	}
 	from = q.write.Value & q.mask
