@@ -52,13 +52,13 @@ func NewByteChunkQ(size, pause, chunk int64) (*ByteChunkQ, error) {
 
 func (q *ByteChunkQ) AcquireWrite() []byte {
 	chunk := q.chunk
-	write := q.write.Value
+	write := q.write.released.Value
 	writeTo := write + chunk
 	readLimit := writeTo - q.size
-	if readLimit > q.readCache.Value {
-		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
-		if readLimit > q.readCache.Value {
-			q.failedWrites.Value++
+	if readLimit > q.write.oppositeCache.Value {
+		q.write.oppositeCache.Value = atomic.LoadInt64(&q.read.released.Value)
+		if readLimit > q.write.oppositeCache.Value {
+			q.write.failed.Value++
 			ftime.Pause(q.pause)
 			return nil
 		}
@@ -69,21 +69,21 @@ func (q *ByteChunkQ) AcquireWrite() []byte {
 }
 
 func (q *ByteChunkQ) ReleaseWrite() {
-	atomic.AddInt64(&q.write.Value, q.chunk)
+	atomic.AddInt64(&q.write.released.Value, q.chunk)
 }
 
 func (q *ByteChunkQ) ReleaseWriteLazy() {
-	fatomic.LazyStore(&q.write.Value, q.write.Value+q.chunk)
+	fatomic.LazyStore(&q.write.released.Value, q.write.released.Value+q.chunk)
 }
 
 func (q *ByteChunkQ) AcquireRead() []byte {
 	chunk := q.chunk
-	read := q.read.Value
+	read := q.read.released.Value
 	readTo := read + chunk
-	if readTo > q.writeCache.Value {
-		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
-		if readTo > q.writeCache.Value {
-			q.failedReads.Value++
+	if readTo > q.read.oppositeCache.Value {
+		q.read.oppositeCache.Value = atomic.LoadInt64(&q.write.released.Value)
+		if readTo > q.read.oppositeCache.Value {
+			q.read.failed.Value++
 			ftime.Pause(q.pause)
 			return nil
 		}
@@ -94,9 +94,9 @@ func (q *ByteChunkQ) AcquireRead() []byte {
 }
 
 func (q *ByteChunkQ) ReleaseRead() {
-	atomic.AddInt64(&q.read.Value, q.chunk)
+	atomic.AddInt64(&q.read.released.Value, q.chunk)
 }
 
 func (q *ByteChunkQ) ReleaseReadLazy() {
-	fatomic.LazyStore(&q.read.Value, q.read.Value+q.chunk)
+	fatomic.LazyStore(&q.read.released.Value, q.read.released.Value+q.chunk)
 }

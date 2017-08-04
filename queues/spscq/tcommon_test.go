@@ -40,15 +40,15 @@ func copyForRead(cq *commonQ) *commonQ {
 	snap.size = cq.size
 	snap.mask = cq.mask
 	// write
-	snap.write.Value = -1
-	snap.writeSize.Value = -1
-	snap.failedWrites.Value = -1
-	snap.readCache.Value = -1
+	snap.write.released.Value = -1
+	snap.write.unreleased.Value = -1
+	snap.write.failed.Value = -1
+	snap.write.oppositeCache.Value = -1
 	// read
-	snap.read.Value = cq.read.Value
-	snap.readSize.Value = cq.readSize.Value
-	snap.failedReads.Value = cq.failedReads.Value
-	snap.writeCache.Value = cq.writeCache.Value
+	snap.read.released.Value = cq.read.released.Value
+	snap.read.unreleased.Value = cq.read.unreleased.Value
+	snap.read.failed.Value = cq.read.failed.Value
+	snap.read.oppositeCache.Value = cq.read.oppositeCache.Value
 	return snap
 }
 
@@ -58,15 +58,15 @@ func copyForWrite(cq *commonQ) *commonQ {
 	snap.size = cq.size
 	snap.mask = cq.mask
 	// write
-	snap.write.Value = cq.write.Value
-	snap.writeSize.Value = cq.writeSize.Value
-	snap.failedWrites.Value = cq.failedWrites.Value
-	snap.readCache.Value = cq.readCache.Value
+	snap.write.released.Value = cq.write.released.Value
+	snap.write.unreleased.Value = cq.write.unreleased.Value
+	snap.write.failed.Value = cq.write.failed.Value
+	snap.write.oppositeCache.Value = cq.write.oppositeCache.Value
 	// read
-	snap.read.Value = -1
-	snap.readSize.Value = -1
-	snap.failedReads.Value = -1
-	snap.writeCache.Value = -1
+	snap.read.released.Value = -1
+	snap.read.unreleased.Value = -1
+	snap.read.failed.Value = -1
+	snap.read.oppositeCache.Value = -1
 	return snap
 }
 
@@ -85,31 +85,31 @@ func testAcquireWrite(writeBufferSize, from, to int64, before, after *commonQ) e
 		return fmt.Errorf("from (%d) is greater than to (%d)", from, to)
 	}
 	actualWriteSize := to - from
-	if actualWriteSize != after.writeSize.Value {
-		return fmt.Errorf("actual write size (%d) does not equal after.writeSize (%d)", actualWriteSize, after.writeSize.Value)
+	if actualWriteSize != after.write.unreleased.Value {
+		return fmt.Errorf("actual write size (%d) does not equal after.writeSize (%d)", actualWriteSize, after.write.unreleased.Value)
 	}
-	if actualWriteSize == 0 && before.failedWrites.Value+1 != after.failedWrites.Value {
-		return fmt.Errorf("failedWrites not incremented. Expected %d, found %d", before.failedWrites.Value+1, after.failedWrites.Value)
+	if actualWriteSize == 0 && before.write.failed.Value+1 != after.write.failed.Value {
+		return fmt.Errorf("failedWrites not incremented. Expected %d, found %d", before.write.failed.Value+1, after.write.failed.Value)
 	}
 	if actualWriteSize > writeBufferSize {
 		return fmt.Errorf("Actual write size (%d) larger than requested buffer size (%d)", actualWriteSize, writeBufferSize)
 	}
 	if (actualWriteSize < writeBufferSize) && // Actual write smaller than asked for
-		((before.write.Value + actualWriteSize) != (after.readCache.Value + qSize)) && // Actual write not pushing up against read
-		((before.write.Value+actualWriteSize)&before.mask != 0) { // Actual write not pushing against physical end of queue
+		((before.write.released.Value + actualWriteSize) != (after.write.oppositeCache.Value + qSize)) && // Actual write not pushing up against read
+		((before.write.released.Value+actualWriteSize)&before.mask != 0) { // Actual write not pushing against physical end of queue
 		return fmt.Errorf("Actual write size (%d) could have been bigger.\nbefore %s\nafter  %s", actualWriteSize, before.writeString(), after.writeString())
 	}
-	if (after.write.Value + actualWriteSize) > (after.readCache.Value + qSize) {
+	if (after.write.released.Value + actualWriteSize) > (after.write.oppositeCache.Value + qSize) {
 		return fmt.Errorf("Actual write size (%d) overwrites potentially unread data.\nafter %s", actualWriteSize, after.writeString())
 	}
 	return nil
 }
 
 func testReleaseStoredWrite(before, after *commonQ) error {
-	if after.writeSize.Value != 0 {
-		return errors.New(fmt.Sprintf("after.writeSize was not reset to 0, %d found instead", after.writeSize.Value))
+	if after.write.unreleased.Value != 0 {
+		return errors.New(fmt.Sprintf("after.writeSize was not reset to 0, %d found instead", after.write.unreleased.Value))
 	}
-	if after.write.Value != before.write.Value+before.writeSize.Value {
+	if after.write.released.Value != before.write.released.Value+before.write.unreleased.Value {
 		return errors.New(fmt.Sprintf("write has not been advanced by the correct amount.\nbefore %s\nafter  %s", before, after))
 	}
 	return nil
@@ -130,31 +130,31 @@ func testAcquireRead(readBufferSize, from, to int64, before, after *commonQ) err
 		return errors.New(fmt.Sprintf("to (%d) must be a valid index for an array of size %d", to, qSize))
 	}
 	actualReadSize := to - from
-	if after.readSize.Value != actualReadSize {
-		return errors.New(fmt.Sprintf("after.readSize (%d) does not equal actual read size (%d)", after.readSize.Value, actualReadSize))
+	if after.read.unreleased.Value != actualReadSize {
+		return errors.New(fmt.Sprintf("after.readSize (%d) does not equal actual read size (%d)", after.read.unreleased.Value, actualReadSize))
 	}
-	if actualReadSize == 0 && before.failedReads.Value+1 != after.failedReads.Value {
-		return errors.New(fmt.Sprintf("failedReads not incremented. Expected %d, found %d", before.failedReads.Value+1, after.failedReads.Value))
+	if actualReadSize == 0 && before.read.failed.Value+1 != after.read.failed.Value {
+		return errors.New(fmt.Sprintf("failedReads not incremented. Expected %d, found %d", before.read.failed.Value+1, after.read.failed.Value))
 	}
 	if actualReadSize > readBufferSize {
 		return errors.New(fmt.Sprintf("Actual read size (%d) larger than requested buffer size (%d)", actualReadSize, readBufferSize))
 	}
 	if (actualReadSize < readBufferSize) && // Actual read smaller than asked for
-		((before.read.Value + actualReadSize) != (after.writeCache.Value)) && // Actual read not pushing up against write
-		((before.read.Value+actualReadSize)&before.mask != 0) { // Actual read not pushing against physical end of queue
+		((before.read.released.Value + actualReadSize) != (after.read.oppositeCache.Value)) && // Actual read not pushing up against write
+		((before.read.released.Value+actualReadSize)&before.mask != 0) { // Actual read not pushing against physical end of queue
 		return errors.New(fmt.Sprintf("Actual read size (%d) could have been bigger.\nbefore %s\nafter  %s", actualReadSize, before.readString(), after.readString()))
 	}
-	if (after.read.Value + actualReadSize) > after.writeCache.Value {
-		return errors.New(fmt.Sprintf("Actual read size (%d) reads past write position (%d).\nafter %s", actualReadSize, after.write.Value, after.readString()))
+	if (after.read.released.Value + actualReadSize) > after.read.oppositeCache.Value {
+		return errors.New(fmt.Sprintf("Actual read size (%d) reads past write position (%d).\nafter %s", actualReadSize, after.write.released.Value, after.readString()))
 	}
 	return nil
 }
 
 func testReleaseStoredRead(before, after *commonQ) error {
-	if after.readSize.Value != 0 {
-		return errors.New(fmt.Sprintf("after.readSize was not reset to 0, %d found instead", after.readSize.Value))
+	if after.read.unreleased.Value != 0 {
+		return errors.New(fmt.Sprintf("after.readSize was not reset to 0, %d found instead", after.read.unreleased.Value))
 	}
-	if after.read.Value != before.read.Value+before.readSize.Value {
+	if after.read.released.Value != before.read.released.Value+before.read.unreleased.Value {
 		return errors.New(fmt.Sprintf("read has not been advanced by the correct amount.\nbefore %s\nafter   %s", before, after))
 	}
 	return nil

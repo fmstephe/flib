@@ -51,13 +51,13 @@ func NewByteMsgQ(size, pause int64) (*ByteMsgQ, error) {
 
 func (q *ByteMsgQ) AcquireWrite(bufferSize int64) []byte {
 	totalSize := bufferSize + headerSize
-	initFrom := q.write.Value & q.mask
+	initFrom := q.write.released.Value & q.mask
 	rem := q.size - initFrom
 	if rem < totalSize {
 		if rem >= headerSize {
 			writeHeader(q.ringBuffer, initFrom, -rem)
 		}
-		atomic.AddInt64(&q.write.Value, rem)
+		atomic.AddInt64(&q.write.released.Value, rem)
 	}
 	from, to := q.msgWrite(totalSize)
 	if from == to {
@@ -76,15 +76,15 @@ func (q *ByteMsgQ) ReleaseWriteLazy() {
 }
 
 func (q *ByteMsgQ) AcquireRead() []byte {
-	rem := q.size - (q.read.Value & q.mask)
+	rem := q.size - (q.read.released.Value & q.mask)
 	if rem < headerSize {
-		atomic.AddInt64(&q.read.Value, rem)
+		atomic.AddInt64(&q.read.released.Value, rem)
 	}
-	initFrom := q.read.Value & q.mask
+	initFrom := q.read.released.Value & q.mask
 	totalSize := readHeader(q.ringBuffer, initFrom)
 	if totalSize < 0 {
-		atomic.AddInt64(&q.read.Value, -totalSize)
-		initFrom = q.read.Value & q.mask
+		atomic.AddInt64(&q.read.released.Value, -totalSize)
+		initFrom = q.read.released.Value & q.mask
 		totalSize = readHeader(q.ringBuffer, initFrom)
 	}
 	from, to := q.msgRead(totalSize)
@@ -103,35 +103,35 @@ func (q *ByteMsgQ) ReleaseReadLazy() {
 }
 
 func (q *ByteMsgQ) msgWrite(bufferSize int64) (from int64, to int64) {
-	writeTo := q.write.Value + bufferSize
+	writeTo := q.write.released.Value + bufferSize
 	readLimit := writeTo - q.size
-	if readLimit > q.readCache.Value {
-		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
-		if readLimit > q.readCache.Value {
-			q.failedWrites.Value++
+	if readLimit > q.write.oppositeCache.Value {
+		q.write.oppositeCache.Value = atomic.LoadInt64(&q.read.released.Value)
+		if readLimit > q.write.oppositeCache.Value {
+			q.write.failed.Value++
 			ftime.Pause(q.pause)
 			return 0, 0
 		}
 	}
-	from = q.write.Value & q.mask
+	from = q.write.released.Value & q.mask
 	to = from + bufferSize
-	q.writeSize.Value = bufferSize
+	q.write.unreleased.Value = bufferSize
 	return from, to
 }
 
 func (q *ByteMsgQ) msgRead(bufferSize int64) (from int64, to int64) {
-	readTo := q.read.Value + bufferSize
-	if readTo > q.writeCache.Value {
-		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
-		if readTo > q.writeCache.Value {
-			q.failedReads.Value++
+	readTo := q.read.released.Value + bufferSize
+	if readTo > q.read.oppositeCache.Value {
+		q.read.oppositeCache.Value = atomic.LoadInt64(&q.write.released.Value)
+		if readTo > q.read.oppositeCache.Value {
+			q.read.failed.Value++
 			ftime.Pause(q.pause)
 			return 0, 0
 		}
 	}
-	from = q.read.Value & q.mask
+	from = q.read.released.Value & q.mask
 	to = from + bufferSize
-	q.readSize.Value = bufferSize
+	q.read.unreleased.Value = bufferSize
 	return from, to
 }
 

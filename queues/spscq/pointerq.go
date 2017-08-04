@@ -48,7 +48,9 @@ func NewPointerQ(size, pause int64) (*PointerQ, error) {
 		return nil, err
 	}
 	ringBuffer := padded.PointerSlice(int(size))
-	return &PointerQ{ringBuffer: ringBuffer, commonQ: cq}, nil
+	q := &PointerQ{ringBuffer: ringBuffer, commonQ: cq}
+	q.initialise()
+	return q, nil
 }
 
 func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
@@ -57,8 +59,8 @@ func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
 }
 
 func (q *PointerQ) ReleaseRead() {
-	from := q.read.Value & q.mask
-	to := from + q.readSize.Value
+	from := q.read.released.Value & q.mask
+	to := from + q.read.unreleased.Value
 	for i := from; i < to; i++ {
 		q.ringBuffer[i] = nil
 	}
@@ -66,8 +68,8 @@ func (q *PointerQ) ReleaseRead() {
 }
 
 func (q *PointerQ) ReleaseReadLazy() {
-	from := q.read.Value & q.mask
-	to := from + q.readSize.Value
+	from := q.read.released.Value & q.mask
+	to := from + q.read.unreleased.Value
 	for i := from; i < to; i++ {
 		q.ringBuffer[i] = nil
 	}
@@ -90,7 +92,7 @@ func (q *PointerQ) ReleaseWriteLazy() {
 func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
 	b := q.writeSingle(val)
 	if b {
-		atomic.AddInt64(&q.write.Value, 1)
+		atomic.AddInt64(&q.write.released.Value, 1)
 	}
 	return b
 }
@@ -105,18 +107,18 @@ func (q *PointerQ) WriteSingleBlocking(val unsafe.Pointer) {
 func (q *PointerQ) WriteSingleLazy(val unsafe.Pointer) bool {
 	b := q.writeSingle(val)
 	if b {
-		fatomic.LazyStore(&q.write.Value, q.write.Value+1)
+		fatomic.LazyStore(&q.write.released.Value, q.write.released.Value+1)
 	}
 	return b
 }
 
 func (q *PointerQ) writeSingle(val unsafe.Pointer) bool {
-	write := q.write.Value
+	write := q.write.released.Value
 	readLimit := write - q.size
-	if readLimit == q.readCache.Value {
-		q.readCache.Value = atomic.LoadInt64(&q.read.Value)
-		if readLimit == q.readCache.Value {
-			q.failedWrites.Value++
+	if readLimit == q.write.oppositeCache.Value {
+		q.write.oppositeCache.Value = atomic.LoadInt64(&q.read.released.Value)
+		if readLimit == q.write.oppositeCache.Value {
+			q.write.failed.Value++
 			ftime.Pause(q.pause)
 			return false
 		}
@@ -128,7 +130,7 @@ func (q *PointerQ) writeSingle(val unsafe.Pointer) bool {
 func (q *PointerQ) ReadSingle() unsafe.Pointer {
 	val := q.readSingle()
 	if val != nil {
-		atomic.AddInt64(&q.read.Value, 1)
+		atomic.AddInt64(&q.read.released.Value, 1)
 	}
 	return val
 }
@@ -144,17 +146,17 @@ func (q *PointerQ) ReadSingleBlocking() unsafe.Pointer {
 func (q *PointerQ) ReadSingleLazy() unsafe.Pointer {
 	val := q.readSingle()
 	if val != nil {
-		fatomic.LazyStore(&q.read.Value, q.read.Value+1)
+		fatomic.LazyStore(&q.read.released.Value, q.read.released.Value+1)
 	}
 	return val
 }
 
 func (q *PointerQ) readSingle() unsafe.Pointer {
-	read := q.read.Value
-	if read == q.writeCache.Value {
-		q.writeCache.Value = atomic.LoadInt64(&q.write.Value)
-		if read == q.writeCache.Value {
-			q.failedReads.Value++
+	read := q.read.released.Value
+	if read == q.read.oppositeCache.Value {
+		q.read.oppositeCache.Value = atomic.LoadInt64(&q.write.released.Value)
+		if read == q.read.oppositeCache.Value {
+			q.read.failed.Value++
 			ftime.Pause(q.pause)
 			return nil
 		}
