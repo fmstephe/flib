@@ -31,16 +31,17 @@ var (
 	pqsl      = flag.Bool("pqsl", false, "Runs PointerQ lazily reading and writing a pointer at a time")
 	batchSize = flag.Int64("batchSize", 64, "The size of the read/write batches used by PointerQ")
 	// Addtional flags
-	millionMsgs = flag.Int64("mm", 100, "The number of messages (in millions) to send")
-	qSize       = flag.Int64("qSize", 1024*1024, "The size of the queue's ring-buffer")
-	pause       = flag.Int64("pause", 20*1000, "The size of the pause when a read or write fails")
-	profile     = flag.Bool("profile", false, "Activates the Go profiler, outputting into a prof_* file.")
+	msgs     = flag.Int64("m", 100, "The number of messages to send")
+	msgsMult = flag.Int64("mmul", 1e6, "The multiplier for the mm argument, defaults to 1,000,000")
+	qSize    = flag.Int64("qSize", 1024*1024, "The size of the queue's ring-buffer")
+	pause    = flag.Int64("pause", 20*1000, "The size of the pause when a read or write fails")
+	profile  = flag.Bool("profile", false, "Activates the Go profiler, outputting into a prof_* file.")
 )
 
 func main() {
 	runtime.GOMAXPROCS(4)
 	flag.Parse()
-	msgCount := (*millionMsgs) * 1e6
+	msgCount := (*msgs) * (*msgsMult)
 	debug.SetGCPercent(-1)
 	if *bmqar || *all {
 		bmqarTest(msgCount, *pause, *msgSize, *qSize, *profile)
