@@ -32,6 +32,7 @@ type commonQ struct {
 type mutableFields struct {
 	// TODO have a hard think about padding in this struct
 	// Readonly Fields
+	name  string
 	size  int64
 	mask  int64
 	pause int64
@@ -79,6 +80,14 @@ func (f *mutableFields) getFailed() int64 {
 	return atomic.LoadInt64(&f.failed.Value)
 }
 
+func (f *mutableFields) String() string {
+	released := f.released.Value
+	unreleased := f.unreleased.Value
+	failed := f.failed.Value
+	cached := f.oppositeCache.Value
+	return fmt.Sprintf("{%s, size %d, mask %d, released %d(%d), unreleased %d, failed %d, cached %d(%d) }", f.name, f.size, f.mask, released, released&f.mask, unreleased, failed, cached, cached&f.mask)
+}
+
 func newCommonQ(size, pause int64) (commonQ, error) {
 	if !fmath.PowerOfTwo(size) {
 		return commonQ{}, errors.New(fmt.Sprintf("Size (%d) must be a power of two", size))
@@ -90,8 +99,8 @@ func newCommonQ(size, pause int64) (commonQ, error) {
 		size:  size,
 		mask:  size - 1,
 		pause: pause,
-		write: mutableFields{size: size, mask: size - 1, pause: pause},
-		read:  mutableFields{size: size, mask: size - 1, pause: pause},
+		write: mutableFields{name: "write", size: size, mask: size - 1, pause: pause},
+		read:  mutableFields{name: "read", size: size, mask: size - 1, pause: pause},
 	}
 	q.write.offset.Value = size
 	return q, nil
@@ -137,35 +146,13 @@ func (q *commonQ) FailedWrites() int64 {
 }
 
 func (q *commonQ) String() string {
-	size := q.size
-	mask := q.mask
-	write := q.write.released.Value
-	writeUnreleased := q.write.unreleased.Value
-	writeFailed := q.write.failed.Value
-	readCache := q.write.oppositeCache.Value
-	read := q.read.released.Value
-	readUnreleased := q.read.unreleased.Value
-	readFailed := q.read.failed.Value
-	writeCache := q.read.oppositeCache.Value
-	return fmt.Sprintf("{size %d, mask %d, write %d(%d), writeUnreleased %d, writeFailed %d, readCache %d(%d), read %d(%d), readUnreleased %d, readFailed %d, writeCache %d}", size, mask, write, write&mask, writeUnreleased, writeFailed, readCache, readCache&mask, read, read&mask, readUnreleased, readFailed, writeCache)
+	return fmt.Sprintf("%s, %s", q.read, q.write)
 }
 
 func (q *commonQ) readString() string {
-	size := q.size
-	mask := q.mask
-	read := q.read.released.Value
-	readUnreleased := q.read.unreleased.Value
-	readFailed := q.read.failed.Value
-	writeCache := q.read.oppositeCache.Value
-	return fmt.Sprintf("{read: size %d, mask %d, read %d(%d), readUnreleased %d, readfailed %d, writeCache %d(%d)}", size, mask, read, read&mask, readUnreleased, readFailed, writeCache, read&mask)
+	return q.read.String()
 }
 
 func (q *commonQ) writeString() string {
-	size := q.size
-	mask := q.mask
-	write := q.write.released.Value
-	writeUnreleased := q.write.unreleased.Value
-	writeFailed := q.write.failed.Value
-	readCache := q.write.oppositeCache.Value
-	return fmt.Sprintf("{write: size %d, mask %d, write %d(%d), writeUnreleased %d, writeFailed %d, readCache %d(%d)}", size, mask, write, write&mask, writeUnreleased, writeFailed, readCache, readCache&mask)
+	return q.write.String()
 }
