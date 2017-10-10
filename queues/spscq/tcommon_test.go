@@ -49,31 +49,31 @@ func testAcquire(requestedBufferSize, from, to int64, before, after mutableField
 		return fmt.Errorf("from (%d) is greater than to (%d)", from, to)
 	}
 	actualBufferSize := to - from
-	if actualBufferSize != after.unreleased.Value {
-		return fmt.Errorf("actual write size (%d) does not equal after.writeSize (%d)", actualBufferSize, after.unreleased.Value)
+	if actualBufferSize != after.unreleased {
+		return fmt.Errorf("actual write size (%d) does not equal after.writeSize (%d)", actualBufferSize, after.unreleased)
 	}
-	if actualBufferSize == 0 && before.failed.Value+1 != after.failed.Value {
-		return fmt.Errorf("failedWrites not incremented. Expected %d, found %d", before.failed.Value+1, after.failed.Value)
+	if actualBufferSize == 0 && before.failed+1 != after.failed {
+		return fmt.Errorf("failedWrites not incremented. Expected %d, found %d", before.failed+1, after.failed)
 	}
 	if actualBufferSize > requestedBufferSize {
 		return fmt.Errorf("Actual write size (%d) larger than requested buffer size (%d)", actualBufferSize, requestedBufferSize)
 	}
 	if (actualBufferSize < requestedBufferSize) && // buffer smaller than asked for
-		((before.released.Value + actualBufferSize) != (after.oppositeCache.Value + before.offset.Value)) && // buffer not pushing up against opposite
-		((before.released.Value+actualBufferSize)&before.mask != 0) { // buffer not pushing against physical end of queue
+		((before.released + actualBufferSize) != (after.oppositeCache + before.offset)) && // buffer not pushing up against opposite
+		((before.released+actualBufferSize)&before.mask != 0) { // buffer not pushing against physical end of queue
 		return fmt.Errorf("Actual write size (%d) could have been bigger.\nbefore %s\nafter  %s", actualBufferSize, before.String(), after.String())
 	}
-	if (after.released.Value + actualBufferSize) > (after.oppositeCache.Value + qSize) {
+	if (after.released + actualBufferSize) > (after.oppositeCache + qSize) {
 		return fmt.Errorf("Actual write size (%d) overwrites potentially unread data.\nafter %s", actualBufferSize, after.String())
 	}
 	return nil
 }
 
 func testRelease(before, after mutableFields) error {
-	if after.unreleased.Value != 0 {
-		return errors.New(fmt.Sprintf("unreleased was not reset to 0, %d found instead", after.unreleased.Value))
+	if after.unreleased != 0 {
+		return errors.New(fmt.Sprintf("unreleased was not reset to 0, %d found instead", after.unreleased))
 	}
-	if after.released.Value != before.released.Value+before.unreleased.Value {
+	if after.released != before.released+before.unreleased {
 		return errors.New(fmt.Sprintf("released has not been advanced by the correct amount.\nbefore %s\nafter  %s", before, after))
 	}
 	return nil
