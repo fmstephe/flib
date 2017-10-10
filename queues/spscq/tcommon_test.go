@@ -34,43 +34,7 @@ func TestNewCommonQNotPowerOf2(t *testing.T) {
 	}
 }
 
-func copyForRead(cq *commonQ) *commonQ {
-	snap := &commonQ{}
-	// immutable
-	snap.size = cq.size
-	snap.mask = cq.mask
-	// write
-	snap.write.released.Value = -1
-	snap.write.unreleased.Value = -1
-	snap.write.failed.Value = -1
-	snap.write.oppositeCache.Value = -1
-	// read
-	snap.read.released.Value = cq.read.released.Value
-	snap.read.unreleased.Value = cq.read.unreleased.Value
-	snap.read.failed.Value = cq.read.failed.Value
-	snap.read.oppositeCache.Value = cq.read.oppositeCache.Value
-	return snap
-}
-
-func copyForWrite(cq *commonQ) *commonQ {
-	snap := &commonQ{}
-	// immutable
-	snap.size = cq.size
-	snap.mask = cq.mask
-	// write
-	snap.write.released.Value = cq.write.released.Value
-	snap.write.unreleased.Value = cq.write.unreleased.Value
-	snap.write.failed.Value = cq.write.failed.Value
-	snap.write.oppositeCache.Value = cq.write.oppositeCache.Value
-	// read
-	snap.read.released.Value = -1
-	snap.read.unreleased.Value = -1
-	snap.read.failed.Value = -1
-	snap.read.oppositeCache.Value = -1
-	return snap
-}
-
-func testAcquireWrite(writeBufferSize, from, to int64, before, after *commonQ) error {
+func testAcquire(requestedBufferSize, from, to int64, before, after mutableFields) error {
 	if before.size != after.size {
 		return fmt.Errorf("before.size (%d) does not equal after.size (%d)", before.size, after.size)
 	}
@@ -84,78 +48,33 @@ func testAcquireWrite(writeBufferSize, from, to int64, before, after *commonQ) e
 	if from > to {
 		return fmt.Errorf("from (%d) is greater than to (%d)", from, to)
 	}
-	actualWriteSize := to - from
-	if actualWriteSize != after.write.unreleased.Value {
-		return fmt.Errorf("actual write size (%d) does not equal after.writeSize (%d)", actualWriteSize, after.write.unreleased.Value)
+	actualBufferSize := to - from
+	if actualBufferSize != after.unreleased.Value {
+		return fmt.Errorf("actual write size (%d) does not equal after.writeSize (%d)", actualBufferSize, after.unreleased.Value)
 	}
-	if actualWriteSize == 0 && before.write.failed.Value+1 != after.write.failed.Value {
-		return fmt.Errorf("failedWrites not incremented. Expected %d, found %d", before.write.failed.Value+1, after.write.failed.Value)
+	if actualBufferSize == 0 && before.failed.Value+1 != after.failed.Value {
+		return fmt.Errorf("failedWrites not incremented. Expected %d, found %d", before.failed.Value+1, after.failed.Value)
 	}
-	if actualWriteSize > writeBufferSize {
-		return fmt.Errorf("Actual write size (%d) larger than requested buffer size (%d)", actualWriteSize, writeBufferSize)
+	if actualBufferSize > requestedBufferSize {
+		return fmt.Errorf("Actual write size (%d) larger than requested buffer size (%d)", actualBufferSize, requestedBufferSize)
 	}
-	if (actualWriteSize < writeBufferSize) && // Actual write smaller than asked for
-		((before.write.released.Value + actualWriteSize) != (after.write.oppositeCache.Value + qSize)) && // Actual write not pushing up against read
-		((before.write.released.Value+actualWriteSize)&before.mask != 0) { // Actual write not pushing against physical end of queue
-		return fmt.Errorf("Actual write size (%d) could have been bigger.\nbefore %s\nafter  %s", actualWriteSize, before.writeString(), after.writeString())
+	if (actualBufferSize < requestedBufferSize) && // buffer smaller than asked for
+		((before.released.Value + actualBufferSize) != (after.oppositeCache.Value + before.offset.Value)) && // buffer not pushing up against opposite
+		((before.released.Value+actualBufferSize)&before.mask != 0) { // buffer not pushing against physical end of queue
+		return fmt.Errorf("Actual write size (%d) could have been bigger.\nbefore %s\nafter  %s", actualBufferSize, before.String(), after.String())
 	}
-	if (after.write.released.Value + actualWriteSize) > (after.write.oppositeCache.Value + qSize) {
-		return fmt.Errorf("Actual write size (%d) overwrites potentially unread data.\nafter %s", actualWriteSize, after.writeString())
-	}
-	return nil
-}
-
-func testReleaseStoredWrite(before, after *commonQ) error {
-	if after.write.unreleased.Value != 0 {
-		return errors.New(fmt.Sprintf("after.writeSize was not reset to 0, %d found instead", after.write.unreleased.Value))
-	}
-	if after.write.released.Value != before.write.released.Value+before.write.unreleased.Value {
-		return errors.New(fmt.Sprintf("write has not been advanced by the correct amount.\nbefore %s\nafter  %s", before, after))
+	if (after.released.Value + actualBufferSize) > (after.oppositeCache.Value + qSize) {
+		return fmt.Errorf("Actual write size (%d) overwrites potentially unread data.\nafter %s", actualBufferSize, after.String())
 	}
 	return nil
 }
 
-func testAcquireRead(readBufferSize, from, to int64, before, after *commonQ) error {
-	if before.size != after.size {
-		return fmt.Errorf("before.size (%d) does not equal after.size (%d)", before.size, after.size)
+func testRelease(before, after mutableFields) error {
+	if after.unreleased.Value != 0 {
+		return errors.New(fmt.Sprintf("unreleased was not reset to 0, %d found instead", after.unreleased.Value))
 	}
-	qSize := before.size
-	if from > to {
-		return errors.New(fmt.Sprintf("from (%d) is greater than to (%d)", from, to))
-	}
-	if from >= qSize || from < 0 {
-		return errors.New(fmt.Sprintf("from (%d) must be a valid index for an array of size %d", from, qSize))
-	}
-	if to > qSize || to < 0 {
-		return errors.New(fmt.Sprintf("to (%d) must be a valid index for an array of size %d", to, qSize))
-	}
-	actualReadSize := to - from
-	if after.read.unreleased.Value != actualReadSize {
-		return errors.New(fmt.Sprintf("after.readSize (%d) does not equal actual read size (%d)", after.read.unreleased.Value, actualReadSize))
-	}
-	if actualReadSize == 0 && before.read.failed.Value+1 != after.read.failed.Value {
-		return errors.New(fmt.Sprintf("failedReads not incremented. Expected %d, found %d", before.read.failed.Value+1, after.read.failed.Value))
-	}
-	if actualReadSize > readBufferSize {
-		return errors.New(fmt.Sprintf("Actual read size (%d) larger than requested buffer size (%d)", actualReadSize, readBufferSize))
-	}
-	if (actualReadSize < readBufferSize) && // Actual read smaller than asked for
-		((before.read.released.Value + actualReadSize) != (after.read.oppositeCache.Value)) && // Actual read not pushing up against write
-		((before.read.released.Value+actualReadSize)&before.mask != 0) { // Actual read not pushing against physical end of queue
-		return errors.New(fmt.Sprintf("Actual read size (%d) could have been bigger.\nbefore %s\nafter  %s", actualReadSize, before.readString(), after.readString()))
-	}
-	if (after.read.released.Value + actualReadSize) > after.read.oppositeCache.Value {
-		return errors.New(fmt.Sprintf("Actual read size (%d) reads past write position (%d).\nafter %s", actualReadSize, after.write.released.Value, after.readString()))
-	}
-	return nil
-}
-
-func testReleaseStoredRead(before, after *commonQ) error {
-	if after.read.unreleased.Value != 0 {
-		return errors.New(fmt.Sprintf("after.readSize was not reset to 0, %d found instead", after.read.unreleased.Value))
-	}
-	if after.read.released.Value != before.read.released.Value+before.read.unreleased.Value {
-		return errors.New(fmt.Sprintf("read has not been advanced by the correct amount.\nbefore %s\nafter   %s", before, after))
+	if after.released.Value != before.released.Value+before.unreleased.Value {
+		return errors.New(fmt.Sprintf("released has not been advanced by the correct amount.\nbefore %s\nafter  %s", before, after))
 	}
 	return nil
 }
@@ -191,34 +110,35 @@ func testSequentialReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 		return
 	}
 	cq := &cqs
+	cq.initialise()
 	for j := int64(0); j < iterations; j++ {
 		// write
-		beforeAcquireWrite := copyForWrite(cq)
+		beforeAcquireWrite := cq.write
 		wfrom, wto := cq.acquireWrite(writeSize)
-		afterAcquireWrite := copyForWrite(cq)
-		if err := testAcquireWrite(writeSize, wfrom, wto, beforeAcquireWrite, afterAcquireWrite); err != nil {
+		afterAcquireWrite := cq.write
+		if err := testAcquire(writeSize, wfrom, wto, beforeAcquireWrite, afterAcquireWrite); err != nil {
 			t.Error(err.Error())
 			return
 		}
-		beforeReleaseWrite := copyForWrite(cq)
+		beforeReleaseWrite := cq.write
 		cq.releaseStoredWrite()
-		afterReleaseWrite := copyForWrite(cq)
-		if err := testReleaseStoredWrite(beforeReleaseWrite, afterReleaseWrite); err != nil {
+		afterReleaseWrite := cq.write
+		if err := testRelease(beforeReleaseWrite, afterReleaseWrite); err != nil {
 			t.Error(err.Error())
 			return
 		}
 		// read
-		beforeAcquireRead := copyForRead(cq)
+		beforeAcquireRead := cq.read
 		rfrom, rto := cq.acquireRead(readSize)
-		afterAcquireRead := copyForRead(cq)
-		if err := testAcquireRead(readSize, rfrom, rto, beforeAcquireRead, afterAcquireRead); err != nil {
+		afterAcquireRead := cq.read
+		if err := testAcquire(readSize, rfrom, rto, beforeAcquireRead, afterAcquireRead); err != nil {
 			t.Error(err.Error())
 			return
 		}
-		beforeReleaseRead := copyForRead(cq)
+		beforeReleaseRead := cq.read
 		cq.releaseStoredRead()
-		afterReleaseRead := copyForRead(cq)
-		if err := testReleaseStoredRead(beforeReleaseRead, afterReleaseRead); err != nil {
+		afterReleaseRead := cq.read
+		if err := testRelease(beforeReleaseRead, afterReleaseRead); err != nil {
 			t.Error(err.Error())
 			return
 		}
@@ -255,6 +175,8 @@ func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 		t.Error(err.Error())
 		return
 	}
+	cq := &cqs
+	cq.initialise()
 	end := make(chan bool, 2)
 	go func(cq *commonQ) {
 		// write
@@ -262,50 +184,50 @@ func testConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, ite
 			end <- true
 		}()
 		for i := int64(0); i < iterations*writeSize; {
-			before := copyForWrite(cq)
+			before := cq.write
 			wfrom, wto := cq.acquireWrite(writeSize)
-			after := copyForWrite(cq)
-			if err := testAcquireWrite(writeSize, wfrom, wto, before, after); err != nil {
+			after := cq.write
+			if err := testAcquire(writeSize, wfrom, wto, before, after); err != nil {
 				t.Error(err.Error())
 				end <- true
 				return
 			}
-			before = copyForWrite(cq)
+			before = cq.write
 			cq.releaseStoredWrite()
-			after = copyForWrite(cq)
-			if err := testReleaseStoredWrite(before, after); err != nil {
+			after = cq.write
+			if err := testRelease(before, after); err != nil {
 				t.Error(err.Error())
 				end <- true
 				return
 			}
 			i += (wto - wfrom)
 		}
-	}(&cqs)
+	}(cq)
 	go func(cq *commonQ) {
 		// read
 		defer func() {
 			end <- true
 		}()
 		for i := int64(0); i < iterations*writeSize; {
-			before := copyForRead(cq)
+			before := cq.read
 			rfrom, rto := cq.acquireRead(readSize)
-			after := copyForRead(cq)
-			if err := testAcquireRead(readSize, rfrom, rto, before, after); err != nil {
+			after := cq.read
+			if err := testAcquire(readSize, rfrom, rto, before, after); err != nil {
 				t.Error(err.Error())
 				end <- true
 				return
 			}
-			before = copyForRead(cq)
+			before = cq.read
 			cq.releaseStoredRead()
-			after = copyForRead(cq)
-			if err := testReleaseStoredRead(before, after); err != nil {
+			after = cq.read
+			if err := testRelease(before, after); err != nil {
 				t.Error(err.Error())
 				end <- true
 				return
 			}
 			i += (rto - rfrom)
 		}
-	}(&cqs)
+	}(cq)
 	<-end
 	<-end
 }
