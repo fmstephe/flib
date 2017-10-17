@@ -34,7 +34,7 @@ func TestNewCommonQNotPowerOf2(t *testing.T) {
 	}
 }
 
-func testAcquire(requestedBufferSize, from, to int64, before, after mutableFields) error {
+func testAcquire(requestedBufferSize, from, to int64, before, after acquireReleaser) error {
 	if before.size != after.size {
 		return fmt.Errorf("before.size (%d) does not equal after.size (%d)", before.size, after.size)
 	}
@@ -69,7 +69,7 @@ func testAcquire(requestedBufferSize, from, to int64, before, after mutableField
 	return nil
 }
 
-func testRelease(before, after mutableFields) error {
+func testRelease(before, after acquireReleaser) error {
 	if after.unreleased != 0 {
 		return errors.New(fmt.Sprintf("unreleased was not reset to 0, %d found instead", after.unreleased))
 	}

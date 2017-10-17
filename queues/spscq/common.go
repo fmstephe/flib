@@ -24,12 +24,12 @@ type commonQ struct {
 	mask  int64
 	pause int64
 	// Writer fields
-	write mutableFields
+	write acquireReleaser
 	// Reader fields
-	read mutableFields
+	read acquireReleaser
 }
 
-type mutableFields struct {
+type acquireReleaser struct {
 	_readonlyBuffer padded.CacheBuffer
 	name            string
 	size            int64
@@ -47,7 +47,7 @@ type mutableFields struct {
 	_endBuffer      padded.CacheBuffer
 }
 
-func (f *mutableFields) acquire(bufferSize int64) (from, to int64) {
+func (f *acquireReleaser) acquire(bufferSize int64) (from, to int64) {
 	acquireFrom := (f.released - f.offset)
 	acquireTo := acquireFrom + bufferSize
 	if acquireTo > f.oppositeCache {
@@ -67,21 +67,21 @@ func (f *mutableFields) acquire(bufferSize int64) (from, to int64) {
 	return from, to
 }
 
-func (f *mutableFields) release() {
+func (f *acquireReleaser) release() {
 	atomic.AddInt64(&f.released, f.unreleased)
 	f.unreleased = 0
 }
 
-func (f *mutableFields) releaseLazy() {
+func (f *acquireReleaser) releaseLazy() {
 	fatomic.LazyStore(&f.released, f.released+f.unreleased)
 	f.unreleased = 0
 }
 
-func (f *mutableFields) getFailed() int64 {
+func (f *acquireReleaser) getFailed() int64 {
 	return atomic.LoadInt64(&f.failed)
 }
 
-func (f *mutableFields) String() string {
+func (f *acquireReleaser) String() string {
 	released := f.released
 	unreleased := f.unreleased
 	failed := f.failed
@@ -100,8 +100,8 @@ func newCommonQ(size, pause int64) (commonQ, error) {
 		size:  size,
 		mask:  size - 1,
 		pause: pause,
-		write: mutableFields{name: "write", size: size, mask: size - 1, pause: pause},
-		read:  mutableFields{name: "read", size: size, mask: size - 1, pause: pause},
+		write: acquireReleaser{name: "write", size: size, mask: size - 1, pause: pause},
+		read:  acquireReleaser{name: "read", size: size, mask: size - 1, pause: pause},
 	}
 	q.write.offset = size
 	return q, nil
