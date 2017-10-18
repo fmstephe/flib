@@ -68,11 +68,11 @@ func (q *ByteMsgQ) AcquireWrite(bufferSize int64) []byte {
 }
 
 func (q *ByteMsgQ) ReleaseWrite() {
-	q.releaseStoredWrite()
+	q.write.pointerq_release()
 }
 
 func (q *ByteMsgQ) ReleaseWriteLazy() {
-	q.releaseStoredWriteLazy()
+	q.write.pointerq_releaseLazy()
 }
 
 func (q *ByteMsgQ) AcquireRead() []byte {
@@ -95,11 +95,11 @@ func (q *ByteMsgQ) AcquireRead() []byte {
 }
 
 func (q *ByteMsgQ) ReleaseRead() {
-	q.releaseStoredRead()
+	q.read.pointerq_release()
 }
 
 func (q *ByteMsgQ) ReleaseReadLazy() {
-	q.releaseStoredReadLazy()
+	q.read.pointerq_releaseLazy()
 }
 
 func (q *ByteMsgQ) msgWrite(bufferSize int64) (from int64, to int64) {

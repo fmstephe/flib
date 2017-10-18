@@ -54,7 +54,7 @@ func NewPointerQ(size, pause int64) (*PointerQ, error) {
 }
 
 func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
-	from, to := q.acquireRead(bufferSize)
+	from, to := q.read.pointerq_acquire(bufferSize)
 	return q.ringBuffer[from:to]
 }
 
@@ -64,7 +64,7 @@ func (q *PointerQ) ReleaseRead() {
 	for i := from; i < to; i++ {
 		q.ringBuffer[i] = nil
 	}
-	q.releaseStoredRead()
+	q.read.pointerq_release()
 }
 
 func (q *PointerQ) ReleaseReadLazy() {
@@ -73,20 +73,20 @@ func (q *PointerQ) ReleaseReadLazy() {
 	for i := from; i < to; i++ {
 		q.ringBuffer[i] = nil
 	}
-	q.releaseStoredReadLazy()
+	q.read.pointerq_release()
 }
 
 func (q *PointerQ) AcquireWrite(bufferSize int64) []unsafe.Pointer {
-	from, to := q.acquireWrite(bufferSize)
+	from, to := q.write.pointerq_acquire(bufferSize)
 	return q.ringBuffer[from:to]
 }
 
 func (q *PointerQ) ReleaseWrite() {
-	q.releaseStoredWrite()
+	q.write.pointerq_release()
 }
 
 func (q *PointerQ) ReleaseWriteLazy() {
-	q.releaseStoredWriteLazy()
+	q.write.pointerq_releaseLazy()
 }
 
 func (q *PointerQ) WriteSingle(val unsafe.Pointer) bool {
