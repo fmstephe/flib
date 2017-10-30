@@ -86,7 +86,7 @@ func printSummary(msgs, nanos, failedWrites, failedReads int64, name string) {
 
 func expect(sum, checksum int64) {
 	if sum != checksum {
-		print(fmt.Sprintf("Sum does not match checksum. sum = %d, checksum = %d\n", sum, checksum))
+		print(fmt.Sprintf("Sum does not match checksum. sum = %s, checksum = %s\n", fstrconv.ItoaComma(sum), fstrconv.ItoaComma(checksum)))
 	}
 }
 
