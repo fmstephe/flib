@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/fmstephe/flib/fmath"
+	"github.com/fmstephe/flib/fstrconv"
 	"github.com/fmstephe/flib/fsync/fatomic"
 	"github.com/fmstephe/flib/fsync/padded"
 	"github.com/fmstephe/flib/ftime"
@@ -19,6 +20,7 @@ type acquireReleaser struct {
 	name            string
 	size            int64
 	mask            int64
+	chunk           int64
 	pause           int64
 	offset          int64
 	_mutableBuffer  padded.CacheBuffer
@@ -37,11 +39,16 @@ func (f *acquireReleaser) getFailed() int64 {
 }
 
 func (f *acquireReleaser) String() string {
-	released := f.released
-	unreleased := f.unreleased
-	failed := f.failed
-	cached := f.oppositeCache
-	return fmt.Sprintf("{%s, size %d, mask %d, released %d(%d), unreleased %d, failed %d, cached %d(%d) }", f.name, f.size, f.mask, released, released&f.mask, unreleased, failed, cached, cached&f.mask)
+	size := fstrconv.ItoaComma(f.size)
+	mask := fstrconv.ItoaComma(f.mask)
+	released := fstrconv.ItoaComma(f.released)
+	maskedReleased := fstrconv.ItoaComma(f.released & f.mask)
+	unreleased := fstrconv.ItoaComma(f.unreleased)
+	failed := fstrconv.ItoaComma(f.failed)
+	cached := fstrconv.ItoaComma(f.oppositeCache)
+	maskedCached := fstrconv.ItoaComma(f.oppositeCache & f.mask)
+	offset := fstrconv.ItoaComma(f.offset)
+	return fmt.Sprintf("{%s, size %s, mask %s, released %s(%s), unreleased %s, failed %s, cached %s(%s), offset %s }", f.name, size, mask, released, maskedReleased, unreleased, failed, cached, maskedCached, offset)
 }
 
 func (f *acquireReleaser) pointerq_acquire(bufferSize int64) (from, to int64) {
@@ -65,10 +72,30 @@ func (f *acquireReleaser) pointerq_acquire(bufferSize int64) (from, to int64) {
 	return from, to
 }
 
-func (f *acquireReleaser) pointerq_release() {
-	atomic.AddInt64(&f.released, f.unreleased)
+func (f *acquireReleaser) bytechunkq_acquire() (from, to int64) {
+	bufferSize := f.chunk
+	acquireFrom := (f.released - f.offset)
+	acquireTo := acquireFrom + bufferSize
+	if acquireTo > f.oppositeCache {
+		f.oppositeCache = atomic.LoadInt64(f.opposite)
+		if acquireTo > f.oppositeCache {
+			f.failed++
+			ftime.Pause(f.pause)
+			return 0, 0
+		}
+	}
+	from = f.released & f.mask
+	to = from + bufferSize
+	f.unreleased = bufferSize
+	return from, to
 }
 
-func (f *acquireReleaser) pointerq_releaseLazy() {
+func (f *acquireReleaser) release() {
+	atomic.AddInt64(&f.released, f.unreleased)
+	f.unreleased = 0
+}
+
+func (f *acquireReleaser) releaseLazy() {
 	fatomic.LazyStore(&f.released, f.released+f.unreleased)
+	f.unreleased = 0
 }

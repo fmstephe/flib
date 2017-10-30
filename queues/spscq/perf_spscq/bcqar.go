@@ -34,7 +34,7 @@ func bcqarEnqueue(msgCount int64, q *spscq.ByteChunkQ, done chan bool) {
 	runtime.LockOSThread()
 	for i := int64(0); i < msgCount; i++ {
 		writeBuffer := q.AcquireWrite()
-		for writeBuffer == nil {
+		for len(writeBuffer) == 0 {
 			writeBuffer = q.AcquireWrite()
 		}
 		writeBuffer[0] = byte(i)
@@ -50,7 +50,7 @@ func bcqarDequeue(msgCount int64, q *spscq.ByteChunkQ, done chan bool) {
 	checksum := int64(0)
 	for i := int64(0); i < msgCount; i++ {
 		readBuffer := q.AcquireRead()
-		for readBuffer == nil {
+		for len(readBuffer) == 0 {
 			readBuffer = q.AcquireRead()
 		}
 		sum += int64(readBuffer[0])

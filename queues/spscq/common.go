@@ -25,6 +25,17 @@ type commonQ struct {
 	read acquireReleaser
 }
 
+func newPointerCommonQ(size, pause int64) (commonQ, error) {
+	return newCommonQ(size, pause)
+}
+
+func newByteChunkCommonQ(size, pause, chunkSize int64) (commonQ, error) {
+	cq, err := newCommonQ(size, pause)
+	cq.write.chunk = chunkSize
+	cq.read.chunk = chunkSize
+	return cq, err
+}
+
 func newCommonQ(size, pause int64) (commonQ, error) {
 	if !fmath.PowerOfTwo(size) {
 		return commonQ{}, errors.New(fmt.Sprintf("Size (%d) must be a power of two", size))

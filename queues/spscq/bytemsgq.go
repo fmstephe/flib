@@ -42,7 +42,7 @@ type ByteMsgQ struct {
 func NewByteMsgQ(size, pause int64) (*ByteMsgQ, error) {
 	// TODO there is an effective minimum queue size - should be enforced
 	ringBuffer := padded.ByteSlice(int(size))
-	cq, err := newCommonQ(size, pause)
+	cq, err := newPointerCommonQ(size, pause)
 	if err != nil {
 		return nil, err // TODO is that the best error to return?
 	}
@@ -68,11 +68,11 @@ func (q *ByteMsgQ) AcquireWrite(bufferSize int64) []byte {
 }
 
 func (q *ByteMsgQ) ReleaseWrite() {
-	q.write.pointerq_release()
+	q.write.release()
 }
 
 func (q *ByteMsgQ) ReleaseWriteLazy() {
-	q.write.pointerq_releaseLazy()
+	q.write.releaseLazy()
 }
 
 func (q *ByteMsgQ) AcquireRead() []byte {
@@ -95,11 +95,11 @@ func (q *ByteMsgQ) AcquireRead() []byte {
 }
 
 func (q *ByteMsgQ) ReleaseRead() {
-	q.read.pointerq_release()
+	q.read.release()
 }
 
 func (q *ByteMsgQ) ReleaseReadLazy() {
-	q.read.pointerq_releaseLazy()
+	q.read.releaseLazy()
 }
 
 func (q *ByteMsgQ) msgWrite(bufferSize int64) (from int64, to int64) {
