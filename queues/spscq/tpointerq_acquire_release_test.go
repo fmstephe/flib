@@ -7,60 +7,35 @@ package spscq
 import (
 	"fmt"
 	"testing"
-
-	"github.com/fmstephe/flib/fmath"
 )
 
-func testPointerQAcquire(requestedBufferSize, from, to int64, before, after acquireReleaser) error {
-	if err := testReadOnlyAcquireReleaser(from, to, before, after); err != nil {
-		return err
-	}
-	actualBufferSize := to - from
-	if actualBufferSize != after.unreleased {
-		return fmt.Errorf("actual buffer size (%d) does not equal after.unreleased (%d)", actualBufferSize, after.unreleased)
-	}
-	if actualBufferSize == 0 && before.failed+1 != after.failed {
-		return fmt.Errorf("failed not incremented. Expected %d, found %d", before.failed+1, after.failed)
-	}
-	if actualBufferSize > requestedBufferSize {
-		return fmt.Errorf("Actual buffer size (%d) larger than requested buffer size (%d)", actualBufferSize, requestedBufferSize)
-	}
-	if (actualBufferSize < requestedBufferSize) && // buffer smaller than asked for
-		((before.released + actualBufferSize) != (after.oppositeCache + before.offset)) && // buffer not pushing up against opposite
-		((before.released+actualBufferSize)&before.mask != 0) { // buffer not pushing against physical end of queue
-		return fmt.Errorf("Actual buffer size (%d) could have been bigger.\nbefore %s\nafter  %s", actualBufferSize, before.String(), after.String())
-	}
-	if (after.released + actualBufferSize) > (after.oppositeCache + before.size) {
-		return fmt.Errorf("Actual buffer size (%d) overwrites potentially unread data.\nafter %s", actualBufferSize, after.String())
-	}
-	return nil
-}
-
-func TestEvenWriteRead_PointerQ(t *testing.T) {
-	for i := uint(0); i <= 41; i += 4 {
-		size := int64(1 << i)
-		bufferSize := fmath.Max(size/128, 1)
-		testPointerQSequentialReadWrites(t, size, bufferSize, bufferSize, 512)
+func TestSequential_PointerQ(t *testing.T) {
+	for sizeExp := uint(0); sizeExp <= 41; sizeExp++ {
+		for readsExp := uint(1); readsExp <= 7; readsExp += 2 {
+			for writesExp := uint(1); readsExp <= 7; readsExp += 2 {
+				size := int64(1 << sizeExp)
+				readSize := int64(1 << readsExp)
+				writeSize := int64(1 << writesExp)
+				testSequential_PointerQ(t, size, readSize, writeSize)
+			}
+		}
 	}
 }
 
-func TestLightWriteHeavyRead_PointerQ(t *testing.T) {
-	for i := uint(0); i <= 41; i += 4 {
-		size := int64(1 << i)
-		bufferSize := fmath.Max(size/128, 1)
-		testPointerQSequentialReadWrites(t, size, bufferSize, bufferSize*2, 512)
+func TestConcurrent_PointerQ(t *testing.T) {
+	for sizeExp := uint(0); sizeExp <= 41; sizeExp++ {
+		for readsExp := uint(1); readsExp <= 7; readsExp += 2 {
+			for writesExp := uint(1); readsExp <= 7; readsExp += 2 {
+				size := int64(1 << sizeExp)
+				readSize := int64(1 << readsExp)
+				writeSize := int64(1 << writesExp)
+				testConcurrent_PointerQ(t, size, readSize, writeSize)
+			}
+		}
 	}
 }
 
-func TestHeavyWriteLightRead_PointerQ(t *testing.T) {
-	for i := uint(0); i <= 41; i += 4 {
-		size := int64(1 << i)
-		bufferSize := fmath.Max(size/128, 1)
-		testPointerQSequentialReadWrites(t, size, bufferSize*2, bufferSize, 512)
-	}
-}
-
-func testPointerQSequentialReadWrites(t *testing.T, size int64, writeSize, readSize, iterations int64) {
+func testSequential_PointerQ(t *testing.T, size, readSize, writeSize int64) {
 	cqs, err := newPointerCommonQ(size, 0)
 	if err != nil {
 		t.Error(err.Error())
@@ -68,7 +43,7 @@ func testPointerQSequentialReadWrites(t *testing.T, size int64, writeSize, readS
 	}
 	cq := &cqs
 	cq.initialise()
-	for j := int64(0); j < iterations; j++ {
+	for j := int64(0); j < 512; j++ {
 		// write
 		beforeAcquireWrite := cq.write
 		wfrom, wto := cq.write.pointerq_acquire(writeSize)
@@ -102,31 +77,8 @@ func testPointerQSequentialReadWrites(t *testing.T, size int64, writeSize, readS
 	}
 }
 
-func TestEvenWriteReadConc_PointerQ(t *testing.T) {
-	for i := uint(0); i <= 41; i += 4 {
-		size := int64(1 << i)
-		bufferSize := fmath.Max(size/128, 1)
-		testPointerQConcurrentReadWrites(t, size, bufferSize, bufferSize, 512)
-	}
-}
-
-func TestLightWriteHeavyReadConc_PointerQ(t *testing.T) {
-	for i := uint(0); i <= 41; i += 4 {
-		size := int64(1 << i)
-		bufferSize := fmath.Max(size/128, 1)
-		testPointerQConcurrentReadWrites(t, size, bufferSize, bufferSize*2, 512)
-	}
-}
-
-func TestHeavyWriteLightReadConc_PointerQ(t *testing.T) {
-	for i := uint(0); i <= 41; i += 4 {
-		size := int64(1 << i)
-		bufferSize := fmath.Max(size/128, 1)
-		testPointerQConcurrentReadWrites(t, size, bufferSize*2, bufferSize, 512)
-	}
-}
-
-func testPointerQConcurrentReadWrites(t *testing.T, size int64, writeSize, readSize, iterations int64) {
+func testConcurrent_PointerQ(t *testing.T, size, readSize, writeSize int64) {
+	iterations := int64(512)
 	cqs, err := newPointerCommonQ(size, 0)
 	if err != nil {
 		t.Error(err.Error())
@@ -187,4 +139,29 @@ func testPointerQConcurrentReadWrites(t *testing.T, size int64, writeSize, readS
 	}(cq)
 	<-end
 	<-end
+}
+
+func testPointerQAcquire(requestedBufferSize, from, to int64, before, after acquireReleaser) error {
+	if err := testReadOnlyAcquireReleaser(from, to, before, after); err != nil {
+		return err
+	}
+	actualBufferSize := to - from
+	if actualBufferSize != after.unreleased {
+		return fmt.Errorf("actual buffer size (%d) does not equal after.unreleased (%d)", actualBufferSize, after.unreleased)
+	}
+	if actualBufferSize == 0 && before.failed+1 != after.failed {
+		return fmt.Errorf("failed not incremented. Expected %d, found %d", before.failed+1, after.failed)
+	}
+	if actualBufferSize > requestedBufferSize {
+		return fmt.Errorf("Actual buffer size (%d) larger than requested buffer size (%d)", actualBufferSize, requestedBufferSize)
+	}
+	if (actualBufferSize < requestedBufferSize) && // buffer smaller than asked for
+		((before.released + actualBufferSize) != (after.oppositeCache + before.offset)) && // buffer not pushing up against opposite
+		((before.released+actualBufferSize)&before.mask != 0) { // buffer not pushing against physical end of queue
+		return fmt.Errorf("Actual buffer size (%d) could have been bigger.\nbefore %s\nafter  %s", actualBufferSize, before.String(), after.String())
+	}
+	if (after.released + actualBufferSize) > (after.oppositeCache + before.size) {
+		return fmt.Errorf("Actual buffer size (%d) overwrites potentially unread data.\nafter %s", actualBufferSize, after.String())
+	}
+	return nil
 }
