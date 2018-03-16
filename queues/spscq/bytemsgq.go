@@ -54,14 +54,14 @@ func (q *ByteMsgQ) AcquireWrite(bufferSize int64) []byte {
 	initFrom := q.write.released & q.mask
 	rem := q.size - initFrom
 	if rem < totalSize {
-		if rem >= headerSize {
-			writeHeader(q.ringBuffer, initFrom, -rem)
-		}
-		atomic.AddInt64(&q.write.released, rem)
+		totalSize += rem
 	}
-	from, to := q.msgWrite(totalSize)
+	from, to := q.msg_write_acquire(totalSize)
 	if from == to {
 		return nil
+	}
+	if rem >= headerSize {
+		writeHeader(q.ringBuffer, initFrom, -rem)
 	}
 	writeHeader(q.ringBuffer, from, totalSize)
 	return q.ringBuffer[from+headerSize : to]
@@ -87,7 +87,7 @@ func (q *ByteMsgQ) AcquireRead() []byte {
 		initFrom = q.read.released & q.mask
 		totalSize = readHeader(q.ringBuffer, initFrom)
 	}
-	from, to := q.msgRead(totalSize)
+	from, to := q.msg_read_acquire(totalSize)
 	if from == to {
 		return nil
 	}
@@ -102,34 +102,35 @@ func (q *ByteMsgQ) ReleaseReadLazy() {
 	q.read.releaseLazy()
 }
 
-func (q *ByteMsgQ) msgWrite(bufferSize int64) (from int64, to int64) {
-	writeTo := q.write.released + bufferSize
-	readLimit := writeTo - q.size
-	if readLimit > q.write.oppositeCache {
-		q.write.oppositeCache = atomic.LoadInt64(&q.read.released)
-		if readLimit > q.write.oppositeCache {
+func (q *ByteMsgQ) msg_write_acquire(bufferSize int64) (from int64, to int64) {
+	acquireFrom := q.write.released - q.write.offset
+	acquireTo := acquireFrom + bufferSize
+	if acquireTo > q.write.oppositeCache {
+		q.write.oppositeCache = atomic.LoadInt64(q.write.opposite)
+		if acquireTo > q.write.oppositeCache {
 			q.write.failed++
 			ftime.Pause(q.pause)
 			return 0, 0
 		}
 	}
-	from = q.write.released & q.mask
+	from = q.write.released & q.write.mask
 	to = from + bufferSize
 	q.write.unreleased = bufferSize
 	return from, to
 }
 
-func (q *ByteMsgQ) msgRead(bufferSize int64) (from int64, to int64) {
-	readTo := q.read.released + bufferSize
-	if readTo > q.read.oppositeCache {
-		q.read.oppositeCache = atomic.LoadInt64(&q.write.released)
-		if readTo > q.read.oppositeCache {
+func (q *ByteMsgQ) msg_read_acquire(bufferSize int64) (from int64, to int64) {
+	acquireFrom := q.read.released - q.read.offset
+	acquireTo := acquireFrom + bufferSize
+	if acquireTo > q.read.oppositeCache {
+		q.read.oppositeCache = atomic.LoadInt64(q.read.opposite)
+		if acquireTo > q.read.oppositeCache {
 			q.read.failed++
 			ftime.Pause(q.pause)
 			return 0, 0
 		}
 	}
-	from = q.read.released & q.mask
+	from = q.read.released & q.read.mask
 	to = from + bufferSize
 	q.read.unreleased = bufferSize
 	return from, to
