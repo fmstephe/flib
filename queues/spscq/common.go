@@ -60,7 +60,7 @@ func (q *commonQ) initialise() {
 }
 
 func (q *commonQ) String() string {
-	return fmt.Sprintf("%s, %s", q.read, q.write)
+	return fmt.Sprintf("%s, %s", &q.read, &q.write)
 }
 
 func (q *commonQ) FailedWrites() int64 {

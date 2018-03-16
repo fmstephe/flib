@@ -40,7 +40,7 @@ func testReadOnlyAcquireReleaser(from, to int64, before, after acquireReleaser) 
 
 func testRelease(before, after acquireReleaser) error {
 	if after.released != before.released+before.unreleased {
-		return errors.New(fmt.Sprintf("released has not been advanced by the correct amount.\nbefore %s\nafter  %s", before, after))
+		return errors.New(fmt.Sprintf("released has not been advanced by the correct amount.\nbefore %s\nafter  %s", &before, &after))
 	}
 	return nil
 }
