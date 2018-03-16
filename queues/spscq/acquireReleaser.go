@@ -51,51 +51,51 @@ func (f *acquireReleaser) String() string {
 	return fmt.Sprintf("{%s, size %s, mask %s, released %s(%s), unreleased %s, failed %s, cached %s(%s), offset %s }", f.name, size, mask, released, maskedReleased, unreleased, failed, cached, maskedCached, offset)
 }
 
-func (f *acquireReleaser) pointerq_acquire(bufferSize int64) (from, to int64) {
-	acquireFrom := (f.released - f.offset)
+func (ar *acquireReleaser) pointerq_acquire(bufferSize int64) (from, to int64) {
+	acquireFrom := ar.released - ar.offset
 	acquireTo := acquireFrom + bufferSize
-	if acquireTo > f.oppositeCache {
-		f.oppositeCache = atomic.LoadInt64(f.opposite)
-		if acquireTo > f.oppositeCache {
-			bufferSize = f.oppositeCache - acquireFrom
+	if acquireTo > ar.oppositeCache {
+		ar.oppositeCache = atomic.LoadInt64(ar.opposite)
+		if acquireTo > ar.oppositeCache {
+			bufferSize = ar.oppositeCache - acquireFrom
 			if bufferSize == 0 {
-				f.failed++
-				f.unreleased = 0
-				ftime.Pause(f.pause)
+				ar.failed++
+				ar.unreleased = 0
+				ftime.Pause(ar.pause)
 				return 0, 0
 			}
 		}
 	}
-	from = f.released & f.mask
-	to = fmath.Min(from+bufferSize, f.size)
-	f.unreleased = to - from
+	from = ar.released & ar.mask
+	to = fmath.Min(from+bufferSize, ar.size)
+	ar.unreleased = to - from
 	return from, to
 }
 
-func (f *acquireReleaser) bytechunkq_acquire() (from, to int64) {
-	bufferSize := f.chunk
-	acquireFrom := (f.released - f.offset)
+func (ar *acquireReleaser) bytechunkq_acquire() (from, to int64) {
+	bufferSize := ar.chunk
+	acquireFrom := ar.released - ar.offset
 	acquireTo := acquireFrom + bufferSize
-	if acquireTo > f.oppositeCache {
-		f.oppositeCache = atomic.LoadInt64(f.opposite)
-		if acquireTo > f.oppositeCache {
-			f.failed++
-			ftime.Pause(f.pause)
+	if acquireTo > ar.oppositeCache {
+		ar.oppositeCache = atomic.LoadInt64(ar.opposite)
+		if acquireTo > ar.oppositeCache {
+			ar.failed++
+			ftime.Pause(ar.pause)
 			return 0, 0
 		}
 	}
-	from = f.released & f.mask
+	from = ar.released & ar.mask
 	to = from + bufferSize
-	f.unreleased = bufferSize
+	ar.unreleased = bufferSize
 	return from, to
 }
 
-func (f *acquireReleaser) release() {
-	atomic.AddInt64(&f.released, f.unreleased)
-	f.unreleased = 0
+func (ar *acquireReleaser) release() {
+	atomic.AddInt64(&ar.released, ar.unreleased)
+	ar.unreleased = 0
 }
 
-func (f *acquireReleaser) releaseLazy() {
-	fatomic.LazyStore(&f.released, f.released+f.unreleased)
-	f.unreleased = 0
+func (ar *acquireReleaser) releaseLazy() {
+	fatomic.LazyStore(&ar.released, ar.released+ar.unreleased)
+	ar.unreleased = 0
 }
