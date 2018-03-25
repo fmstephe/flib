@@ -29,6 +29,7 @@ func NewByteChunkQueue(size, pause, chunk int64) (ByteChunkQueue, error) {
 type ByteChunkQ struct {
 	_prebuffer padded.CacheBuffer
 	commonQ
+	chunk       int64
 	_midbuffer  padded.CacheBuffer
 	ringBuffer  []byte
 	_postbuffer padded.CacheBuffer
@@ -39,17 +40,17 @@ func NewByteChunkQ(size, pause, chunk int64) (*ByteChunkQ, error) {
 		return nil, errors.New(fmt.Sprintf("Size must divide by chunk, (size) %d rem (chunk) %d = %d", size, chunk, size%chunk))
 	}
 	ringBuffer := padded.ByteSlice(int(size))
-	cq, err := newByteChunkCommonQ(size, pause, chunk)
+	cq, err := newCommonQ(size, pause)
 	if err != nil {
 		return nil, err // TODO is that the best error to return?
 	}
-	q := &ByteChunkQ{ringBuffer: ringBuffer, commonQ: cq}
+	q := &ByteChunkQ{commonQ: cq, chunk: chunk, ringBuffer: ringBuffer}
 	q.initialise()
 	return q, nil
 }
 
 func (q *ByteChunkQ) AcquireWrite() []byte {
-	from, to := q.write.bytechunkq_acquire()
+	from, to := q.write.acquireExactly(q.chunk)
 	return q.ringBuffer[from:to]
 }
 
@@ -62,7 +63,7 @@ func (q *ByteChunkQ) ReleaseWriteLazy() {
 }
 
 func (q *ByteChunkQ) AcquireRead() []byte {
-	from, to := q.read.bytechunkq_acquire()
+	from, to := q.read.acquireExactly(q.chunk)
 	return q.ringBuffer[from:to]
 }
 

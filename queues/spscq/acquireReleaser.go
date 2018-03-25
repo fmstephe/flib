@@ -20,10 +20,9 @@ type acquireReleaser struct {
 	name            string
 	size            int64
 	mask            int64
-	chunk           int64
 	pause           int64
 	_mutableBuffer  padded.CacheBuffer
-	offset          int64
+	offset          int64 // TODO why is this on the mutable side?
 	failed          int64
 	oppositeCache   int64
 	unreleased      int64
@@ -51,7 +50,24 @@ func (f *acquireReleaser) String() string {
 	return fmt.Sprintf("{%s, size %s, mask %s, released %s(%s), unreleased %s, failed %s, cached %s(%s), offset %s }", f.name, size, mask, released, maskedReleased, unreleased, failed, cached, maskedCached, offset)
 }
 
-func (ar *acquireReleaser) pointerq_acquire(bufferSize int64) (from, to int64) {
+func (ar *acquireReleaser) acquireExactly(bufferSize int64) (from, to int64) {
+	acquireFrom := ar.released - ar.offset
+	acquireTo := acquireFrom + bufferSize
+	if acquireTo > ar.oppositeCache {
+		ar.oppositeCache = atomic.LoadInt64(ar.opposite)
+		if acquireTo > ar.oppositeCache {
+			ar.failed++
+			ftime.Pause(ar.pause)
+			return 0, 0
+		}
+	}
+	from = ar.released & ar.mask
+	to = from + bufferSize
+	ar.unreleased = bufferSize
+	return from, to
+}
+
+func (ar *acquireReleaser) acquireUpTo(bufferSize int64) (from, to int64) {
 	acquireFrom := ar.released - ar.offset
 	acquireTo := acquireFrom + bufferSize
 	if acquireTo > ar.oppositeCache {
@@ -69,24 +85,6 @@ func (ar *acquireReleaser) pointerq_acquire(bufferSize int64) (from, to int64) {
 	from = ar.released & ar.mask
 	to = fmath.Min(from+bufferSize, ar.size)
 	ar.unreleased = to - from
-	return from, to
-}
-
-func (ar *acquireReleaser) bytechunkq_acquire() (from, to int64) {
-	bufferSize := ar.chunk
-	acquireFrom := ar.released - ar.offset
-	acquireTo := acquireFrom + bufferSize
-	if acquireTo > ar.oppositeCache {
-		ar.oppositeCache = atomic.LoadInt64(ar.opposite)
-		if acquireTo > ar.oppositeCache {
-			ar.failed++
-			ftime.Pause(ar.pause)
-			return 0, 0
-		}
-	}
-	from = ar.released & ar.mask
-	to = from + bufferSize
-	ar.unreleased = bufferSize
 	return from, to
 }
 

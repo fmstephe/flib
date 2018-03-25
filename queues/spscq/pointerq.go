@@ -43,7 +43,7 @@ type PointerQ struct {
 }
 
 func NewPointerQ(size, pause int64) (*PointerQ, error) {
-	cq, err := newPointerCommonQ(size, pause)
+	cq, err := newCommonQ(size, pause)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func NewPointerQ(size, pause int64) (*PointerQ, error) {
 }
 
 func (q *PointerQ) AcquireRead(bufferSize int64) []unsafe.Pointer {
-	from, to := q.read.pointerq_acquire(bufferSize)
+	from, to := q.read.acquireUpTo(bufferSize)
 	return q.ringBuffer[from:to]
 }
 
@@ -77,7 +77,7 @@ func (q *PointerQ) ReleaseReadLazy() {
 }
 
 func (q *PointerQ) AcquireWrite(bufferSize int64) []unsafe.Pointer {
-	from, to := q.write.pointerq_acquire(bufferSize)
+	from, to := q.write.acquireUpTo(bufferSize)
 	return q.ringBuffer[from:to]
 }
 
