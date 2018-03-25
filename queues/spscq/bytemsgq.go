@@ -5,11 +5,9 @@
 package spscq
 
 import (
-	"sync/atomic"
 	"unsafe"
 
 	"github.com/fmstephe/flib/fsync/padded"
-	"github.com/fmstephe/flib/ftime"
 )
 
 const (
@@ -42,7 +40,7 @@ type ByteMsgQ struct {
 func NewByteMsgQ(size, pause int64) (*ByteMsgQ, error) {
 	// TODO there is an effective minimum queue size - should be enforced
 	ringBuffer := padded.ByteSlice(int(size))
-	cq, err := newPointerCommonQ(size, pause)
+	cq, err := newCommonQ(size, pause)
 	if err != nil {
 		return nil, err // TODO is that the best error to return?
 	}
@@ -50,21 +48,30 @@ func NewByteMsgQ(size, pause int64) (*ByteMsgQ, error) {
 }
 
 func (q *ByteMsgQ) AcquireWrite(bufferSize int64) []byte {
-	totalSize := bufferSize + headerSize
-	initFrom := q.write.released & q.mask
-	rem := q.size - initFrom
+	msgSize := bufferSize + headerSize
+	totalSize := msgSize
+	rem := q.size - (q.write.released & q.mask)
 	if rem < totalSize {
 		totalSize += rem
 	}
-	from, to := q.msg_write_acquire(totalSize)
+	from, to := q.write.acquireExactly(totalSize)
 	if from == to {
 		return nil
 	}
-	if rem >= headerSize {
-		writeHeader(q.ringBuffer, initFrom, -rem)
+	switch {
+	case rem > msgSize:
+		writeHeader(q.ringBuffer, from, msgSize)
+		return q.ringBuffer[from+headerSize : to]
+	case rem >= headerSize:
+		writeHeader(q.ringBuffer, from, -rem)
+		writeHeader(q.ringBuffer, 0, msgSize)
+		return q.ringBuffer[headerSize:to]
+	case rem > msgSize && rem < headerSize:
+		writeHeader(q.ringBuffer, 0, msgSize)
+		return q.ringBuffer[headerSize:to]
+	default:
+		panic("unreachable")
 	}
-	writeHeader(q.ringBuffer, from, totalSize)
-	return q.ringBuffer[from+headerSize : to]
 }
 
 func (q *ByteMsgQ) ReleaseWrite() {
@@ -76,18 +83,20 @@ func (q *ByteMsgQ) ReleaseWriteLazy() {
 }
 
 func (q *ByteMsgQ) AcquireRead() []byte {
-	rem := q.size - (q.read.released & q.mask)
+	wasteOffset := int64(0)
+	from := q.read.released & q.mask
+	rem := q.size - from
 	if rem < headerSize {
-		atomic.AddInt64(&q.read.released, rem)
+		wasteOffset = rem
+		from = 0
 	}
-	initFrom := q.read.released & q.mask
-	totalSize := readHeader(q.ringBuffer, initFrom)
-	if totalSize < 0 {
-		atomic.AddInt64(&q.read.released, -totalSize)
-		initFrom = q.read.released & q.mask
-		totalSize = readHeader(q.ringBuffer, initFrom)
+	msgSize := readHeader(q.ringBuffer, from)
+	if msgSize < 0 {
+		wasteOffset = rem
+		from = 0
+		msgSize = readHeader(q.ringBuffer, 0)
 	}
-	from, to := q.msg_read_acquire(totalSize)
+	from, to := q.read.acquireExactly(msgSize + wasteOffset)
 	if from == to {
 		return nil
 	}
@@ -100,40 +109,6 @@ func (q *ByteMsgQ) ReleaseRead() {
 
 func (q *ByteMsgQ) ReleaseReadLazy() {
 	q.read.releaseLazy()
-}
-
-func (q *ByteMsgQ) msg_write_acquire(bufferSize int64) (from int64, to int64) {
-	acquireFrom := q.write.released - q.write.offset
-	acquireTo := acquireFrom + bufferSize
-	if acquireTo > q.write.oppositeCache {
-		q.write.oppositeCache = atomic.LoadInt64(q.write.opposite)
-		if acquireTo > q.write.oppositeCache {
-			q.write.failed++
-			ftime.Pause(q.pause)
-			return 0, 0
-		}
-	}
-	from = q.write.released & q.write.mask
-	to = from + bufferSize
-	q.write.unreleased = bufferSize
-	return from, to
-}
-
-func (q *ByteMsgQ) msg_read_acquire(bufferSize int64) (from int64, to int64) {
-	acquireFrom := q.read.released - q.read.offset
-	acquireTo := acquireFrom + bufferSize
-	if acquireTo > q.read.oppositeCache {
-		q.read.oppositeCache = atomic.LoadInt64(q.read.opposite)
-		if acquireTo > q.read.oppositeCache {
-			q.read.failed++
-			ftime.Pause(q.pause)
-			return 0, 0
-		}
-	}
-	from = q.read.released & q.read.mask
-	to = from + bufferSize
-	q.read.unreleased = bufferSize
-	return from, to
 }
 
 func writeHeader(buffer []byte, i, val int64) {
