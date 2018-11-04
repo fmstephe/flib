@@ -45,7 +45,6 @@ func NewByteChunkQ(size, pause, chunk int64) (*ByteChunkQ, error) {
 		return nil, err // TODO is that the best error to return?
 	}
 	q := &ByteChunkQ{commonQ: cq, chunk: chunk, ringBuffer: ringBuffer}
-	q.initialise()
 	return q, nil
 }
 

@@ -67,6 +67,23 @@ func (ar *acquireReleaser) acquireExactly(bufferSize int64) (from, to int64) {
 	return from, to
 }
 
+func (ar *acquireReleaser) acquireExactlyWrap(bufferSize int64) (from, to int64) {
+	acquireFrom := ar.released - ar.offset
+	acquireTo := acquireFrom + bufferSize
+	if acquireTo > ar.oppositeCache {
+		ar.oppositeCache = atomic.LoadInt64(ar.opposite)
+		if acquireTo > ar.oppositeCache {
+			ar.failed++
+			ftime.Pause(ar.pause)
+			return 0, 0
+		}
+	}
+	from = ar.released & ar.mask
+	to = (ar.released + bufferSize) & ar.mask
+	ar.unreleased = bufferSize
+	return from, to
+}
+
 func (ar *acquireReleaser) acquireUpTo(bufferSize int64) (from, to int64) {
 	acquireFrom := ar.released - ar.offset
 	acquireTo := acquireFrom + bufferSize

@@ -49,7 +49,6 @@ func NewPointerQ(size, pause int64) (*PointerQ, error) {
 	}
 	ringBuffer := padded.PointerSlice(int(size))
 	q := &PointerQ{ringBuffer: ringBuffer, commonQ: cq}
-	q.initialise()
 	return q, nil
 }
 

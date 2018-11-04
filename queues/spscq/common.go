@@ -40,13 +40,9 @@ func newCommonQ(size, pause int64) (commonQ, error) {
 		read:  acquireReleaser{name: "read", size: size, mask: size - 1, pause: pause},
 	}
 	q.write.offset = size
-	return q, nil
-}
-
-// TODO I think we can move this into newCommonQ
-func (q *commonQ) initialise() {
 	q.write.opposite = &q.read.released
 	q.read.opposite = &q.write.released
+	return q, nil
 }
 
 func (q *commonQ) String() string {

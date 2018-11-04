@@ -54,11 +54,10 @@ func (q *ByteMsgQ) AcquireWrite(bufferSize int64) []byte {
 	if rem < totalSize {
 		totalSize += rem
 	}
-	from, to := q.write.acquireExactly(totalSize)
-	if from == to {
-		return nil
-	}
+	from, to := q.write.acquireExactlyWrap(totalSize)
 	switch {
+	case from == to:
+		return nil
 	case rem > msgSize:
 		writeHeader(q.ringBuffer, from, msgSize)
 		return q.ringBuffer[from+headerSize : to]
@@ -83,20 +82,17 @@ func (q *ByteMsgQ) ReleaseWriteLazy() {
 }
 
 func (q *ByteMsgQ) AcquireRead() []byte {
-	wasteOffset := int64(0)
-	from := q.read.released & q.mask
-	rem := q.size - from
-	if rem < headerSize {
-		wasteOffset = rem
+	from := (q.read.released) & q.mask
+	if q.size-from < headerSize {
 		from = 0
 	}
 	msgSize := readHeader(q.ringBuffer, from)
 	if msgSize < 0 {
-		wasteOffset = rem
 		from = 0
-		msgSize = readHeader(q.ringBuffer, 0)
+		msgSize = readHeader(q.ringBuffer, from)
 	}
-	from, to := q.read.acquireExactly(msgSize + wasteOffset)
+	totalSize := msgSize + headerSize
+	from, to := q.read.acquireExactly(totalSize)
 	if from == to {
 		return nil
 	}
