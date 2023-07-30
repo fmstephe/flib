@@ -92,7 +92,7 @@ func TestNxtPowerOfTwoPowersOfTwoNegative(t *testing.T) {
 // Test that for all positive powers of two n,
 // if we generate a random number, m, smaller than n
 // but larger than the largest power of two less than n
-// then NxtPowerOfTwo(m) returns m
+// then NxtPowerOfTwo(m) returns n
 //
 // A better way to describe this could be that if you take
 // a random number, m, sandwiched between two powers of two

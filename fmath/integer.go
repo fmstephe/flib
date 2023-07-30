@@ -4,12 +4,14 @@
 
 package fmath
 
+import "math/bits"
+
 // Returns true if val is a power of two, otherwise returns false
 func PowerOfTwo(val int64) bool {
 	return val > 0 && val&(val-1) == 0
 }
 
-// Returns the smallest power of two <= val
+// Returns the smallest power of two >= val
 func NxtPowerOfTwo(val int64) int64 {
 	if val <= 1 {
 		return 1
@@ -17,13 +19,7 @@ func NxtPowerOfTwo(val int64) int64 {
 	if PowerOfTwo(val) {
 		return val
 	}
-	for i := uint(1); val != 0; i++ {
-		if val == 1 {
-			return 1 << i
-		}
-		val = val >> 1
-	}
-	panic("Unreachable")
+	return 1 << bits.Len64(uint64(val))
 }
 
 // Returns x if x < y, otherwise returns y
